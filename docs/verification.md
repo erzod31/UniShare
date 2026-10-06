@@ -781,13 +781,17 @@ Los comandos se ajustarán al nombre real generado sin borrar evidencia anterior
   El benchmark FTS5 de 100 000 elementos obtuvo p95 82,0413 ms frente al límite de 300 ms.
 - Todos los ZIP se leyeron completamente y carecen de rutas absolutas, ascendentes o duplicadas:
   Windows 418 entradas/193 535 319 bytes; Android 2/1 610 242; Chromium y Edge Store 14/35 882;
-  expediente Edge 5/69 634; fuente pública 294/1 974 265. Chromium y Edge Store son idénticos.
+  expediente Edge 5/69 634. La fuente pública se vuelve a inspeccionar después del último commit;
+  Chromium y Edge Store son idénticos.
 - Se exportó e inspeccionó un respaldo previo (4 items, 2 assets, 2 colecciones y 2 blobs). Después de
   instalar 0.6.16, una nueva exportación confirmó exactamente los mismos recuentos. La aplicación quedó
   ejecutándose desde `%LOCALAPPDATA%\Programs\UniShare`.
 - La primera actualización sobre 0.6.15 confirmó el bloqueo histórico del agente. Tras corregir
   `OnSessionEnding`, una reinstalación real con 0.6.16 activa permitió a Restart Manager cerrar el
   proceso, terminó con código 0 en 9,24 s y el agente volvió a iniciar. K-042 queda cerrado.
+- GitHub Actions detectó el timeout STA K-043 en su primera ejecución. El commit público
+  `1fde118fe76808cd9a5507975a76bc246e80a9d3` pasó después la matriz completa: Windows con 105/105
+  pruebas, publish, smoke y extensión; Android con pruebas, lint, R8, APK y subida de artefacto.
 - La limpieza posterior envió a la Papelera los artefactos 0.6.14–0.6.15 y eliminó cachés, `bin`, `obj`
   y resultados regenerables; se conservaron los adjuntos de evidencia y los paquetes finales 0.6.16.
 - Artefactos coordinados finales:
@@ -797,18 +801,12 @@ Los comandos se ajustarán al nombre real generado sin borrar evidencia anterior
   - Android ZIP, 1 398 683 bytes, SHA-256 `C62449D7C38989E82ED7F5094D6D857C1D715B3FA97F82AF40B4FD6F560AF342`.
   - Chromium/Edge Store, 23 771 bytes, SHA-256 `7FAB0C1D1D704D7455D60E041CB417C030421D33E9789DB61419F82E0C5700B1`.
   - Expediente Edge, 66 317 bytes, SHA-256 `2DEEE93BC560F31DAB8979FF19352610C0D445638E95CCB582EE32E3F8B7AEF4`.
-  - Fuente pública, 1 048 329 bytes, SHA-256 `5EC9FAE08056293D68FCAFB94FC0051AF1CB0CAE3F850BDEE1CEE355BC3A6CC1`.
+  - Fuente pública: tamaño y SHA-256 finales en `SHA256SUMS-0.6.16.txt`, calculado después de cerrar
+    esta evidencia para evitar una referencia circular.
 - **NO VERIFICADO:** APK 0.6.16 en teléfono físico; Sharesheet/SAF y TalkBack físicos completos;
   cambio Wi-Fi↔datos durante una transferencia; Narrador; clientes Obsidian reales; publicación Edge.
   Windows continúa sin Authenticode y el APK usa la clave lateral de desarrollo por falta de
   certificados del propietario.
-- Artefactos finales (tamaño, SHA-256): Setup Windows 59 713 010 bytes,
-  `5BDFD8DD924D13F3ACEB90CC13810F5402E7B1DED5FB4D58A4A904F72286A6F6`; Windows ZIP 84 340 515 bytes,
-  `53286AD9D36B1178B5610FAD2EF2B01EFA9B1C64679AA770B7912A172D12DCBF`; APK 1 569 859 bytes,
-  `BA8EC604101733DAB2DFFDE72ADE1D204BF273532E71102D2DEDF90828F72C5D`; Android ZIP 1 368 837 bytes,
-  `03CA69F72F93A50CD8D7E7C88F9D3DAA882274927342AF165C0CB7C43E287F6B`; Chromium/Edge Store ZIP
-  20 624 bytes, `2890622BA1330AFA77256D47AF02E24A2F275D37CB4E049717A9321C71D164E2`; expediente Edge
-  63 393 bytes, `490751E53AF9DFDD4D99008D1363D666FAF2D27D2BA141A270098AB0B715E2B5`.
 
 ## Evidencia de preparación pública — 2026-10-06
 
@@ -819,7 +817,7 @@ Los comandos se ajustarán al nombre real generado sin borrar evidencia anterior
   guía obliga a usar `git archive` y un `git init` nuevo, evitando exponer `.git` y datos ya eliminados.
 - La documentación pública incluye MIT, privacidad, seguridad, contribución, changelog y avisos de
   terceros. Los cuatro YAML de GitHub y el script PowerShell de publicación pasan análisis sintáctico;
-  52 Markdown tienen cero enlaces locales rotos.
+  53 Markdown tienen cero enlaces locales rotos.
 - Validación funcional posterior: SDK .NET 10.0.401, restore bloqueado, formato limpio, Release con 0
   advertencias/0 errores y 87/87 pruebas. Android ejecutó 61/61 pruebas debug y 61/61 release, sin fallos
   ni omisiones, `lintRelease` y `assembleRelease` correctos.
