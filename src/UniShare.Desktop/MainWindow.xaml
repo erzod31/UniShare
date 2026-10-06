@@ -1,0 +1,336 @@
+<Window x:Class="UniShare.Desktop.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:UniShare.Desktop"
+        Title="UniShare" Height="790" Width="1260" MinHeight="590" MinWidth="840"
+        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}"
+        Loaded="Window_Loaded" SizeChanged="Window_SizeChanged" PreviewKeyDown="Window_PreviewKeyDown" AllowDrop="True"
+        DragOver="Window_DragOver" Drop="Window_Drop"
+        AutomationProperties.HelpText="Ctrl+L guarda un enlace, Ctrl+F busca, Ctrl+N añade un elemento, Ctrl+E edita y Supr elimina la selección.">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition x:Name="SidebarColumn" Width="220" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+            <Grid Margin="14,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Orientation="Horizontal" Margin="8,0,0,22">
+                    <Border Width="34" Height="34" CornerRadius="9" Background="{DynamicResource PrimaryBrush}">
+                        <TextBlock Text="U" Foreground="White" FontWeight="Bold" FontSize="17"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="UniShare" FontSize="19" FontWeight="SemiBold" />
+                        <TextBlock Text="Biblioteca personal" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1">
+                    <Button x:Name="LibraryNavButton" Style="{StaticResource ActiveNavigationButton}"
+                            Click="AllItems_Click" AutomationProperties.Name="Mostrar toda la biblioteca">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="▣" Width="26" /><TextBlock Text="Biblioteca" /></StackPanel>
+                    </Button>
+                    <Button x:Name="FavoritesNavButton" Style="{StaticResource NavigationButton}" Click="FavoritesNav_Click">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="☆" Width="26" /><TextBlock Text="Favoritos" /></StackPanel>
+                    </Button>
+                    <Button x:Name="OfflineNavButton" Style="{StaticResource NavigationButton}" Click="OfflineNav_Click">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="↓" Width="26" /><TextBlock Text="Offline" /></StackPanel>
+                    </Button>
+                    <Button x:Name="ArchivedNavButton" Style="{StaticResource NavigationButton}" Click="ArchivedNav_Click">
+                        <StackPanel Orientation="Horizontal"><TextBlock Text="⌫" Width="26" /><TextBlock Text="Papelera" /></StackPanel>
+                    </Button>
+                    <Button Style="{StaticResource NavigationButton}" Click="ShowConflicts_Click">
+                        <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="26" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="△" Foreground="{DynamicResource WarningBrush}" />
+                            <TextBlock Grid.Column="1" Text="Conflictos" />
+                        </Grid>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Grid.Row="2" Margin="8,26,8,0">
+                    <TextBlock Text="CARPETAS" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <ScrollViewer Margin="0,7,0,0" MaxHeight="230" VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding Collections}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Button Tag="{Binding Name}" Click="CollectionNav_Click"
+                                            Style="{StaticResource NavigationButton}" HorizontalContentAlignment="Stretch"
+                                            AutomationProperties.Name="{Binding Name}">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1" Text="{Binding ItemCount}" Margin="8,0,0,0"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                    <TextBlock Text="Crea una carpeta al guardar o editar un elemento."
+                               Margin="0,7,0,0" TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <Button Content="Cambiar biblioteca…" Margin="0,14,0,0" Padding="10,6"
+                            Style="{StaticResource GhostButton}" HorizontalContentAlignment="Left" Click="SelectLibrary_Click" />
+                </StackPanel>
+
+                <StackPanel Grid.Row="3">
+                    <Border Padding="10" CornerRadius="9" Background="{DynamicResource AccentSubtleBrush}">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Ellipse Width="9" Height="9" Fill="{DynamicResource SuccessBrush}" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Margin="9,0,0,0">
+                                <TextBlock Text="Sincronización automática" FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock x:Name="SyncStatusText" Text="Comprobando…" FontSize="11"
+                                   AutomationProperties.LiveSetting="Polite"
+                                   Foreground="{DynamicResource SecondaryTextBrush}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Menu Margin="0,8,0,0" Background="Transparent" Foreground="{DynamicResource PrimaryTextBrush}">
+                        <MenuItem Header="Opciones y herramientas" Padding="10,8">
+                            <MenuItem Header="Ver descargas pendientes" Click="ShowDownloads_Click" />
+                            <MenuItem Header="Actualizar títulos y resúmenes" Click="RefreshOriginMetadata_Click" />
+                            <MenuItem Header="Conectar teléfono…" Click="ConfigureDirectSync_Click" />
+                            <MenuItem Header="Resolver conflictos…" Click="ShowConflicts_Click" />
+                            <Separator />
+                            <MenuItem Header="Exportar copia de seguridad…" Click="ExportBackup_Click" />
+                            <MenuItem Header="Restaurar copia…" Click="RestoreBackup_Click" />
+                            <Separator />
+                            <MenuItem Header="Exportar a Obsidian…" Click="ExportObsidian_Click" />
+                            <MenuItem Header="Importar notas desde Obsidian…" Click="ImportObsidian_Click" />
+                            <Separator />
+                            <MenuItem x:Name="ThemeMenuItem" Header="Tema: Sistema" Click="Theme_Click" />
+                            <MenuItem x:Name="TextScaleMenuItem" Header="Tamaño del texto: Normal" Click="TextScale_Click" />
+                            <MenuItem x:Name="LanguageMenuItem" Header="Idioma: Español" Click="Language_Click" />
+                        </MenuItem>
+                    </Menu>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Border Grid.Row="0" Padding="22,16" Background="{DynamicResource PanelBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                 KeyDown="SearchBox_KeyDown" ToolTip="Título, URL, autor, notas o etiquetas"
+                                 AutomationProperties.Name="Buscar en la biblioteca" />
+                        <Button Grid.Column="1" Content="Buscar" Margin="8,0,0,0" Click="Search_Click" />
+                    </Grid>
+                    <TextBlock x:Name="ShortcutHint" Grid.Column="1" Text="Ctrl+F" Margin="12,0,14,0" VerticalAlignment="Center"
+                               FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <Button x:Name="QuickToggleButton" Grid.Column="2" Content="＋  Guardar" Style="{StaticResource PrimaryButton}"
+                            MinWidth="120" Click="ToggleQuickCapture_Click" />
+                </Grid>
+            </Border>
+
+            <Border x:Name="QuickCapturePanel" Grid.Row="1" Margin="22,16,22,0" Padding="18"
+                    Background="{DynamicResource PanelBackgroundBrush}" BorderBrush="{DynamicResource FocusBrush}"
+                    BorderThickness="1" CornerRadius="12" Visibility="Collapsed"
+                    AutomationProperties.Name="Formulario para guardar en UniShare">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Guardar en UniShare" FontSize="18" FontWeight="SemiBold" />
+                            <TextBlock Text="Pega un enlace; UniShare completa el título y la información disponible."
+                                       Margin="0,3,0,0" Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Cerrar" Style="{StaticResource GhostButton}"
+                                Padding="10,5" Click="ToggleQuickCapture_Click" />
+                    </Grid>
+                    <Grid Grid.Row="1" Margin="0,15,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2.4*" /><ColumnDefinition Width="1.25*" />
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,12,0">
+                            <TextBlock Text="Enlace" FontSize="12" FontWeight="SemiBold" />
+                            <TextBox x:Name="QuickUrlBox" Margin="0,5,0,0" KeyDown="QuickUrlBox_KeyDown"
+                                     AutomationProperties.Name="Enlace HTTP o HTTPS"
+                                     ToolTip="Ejemplo: https://ejemplo.com/artículo" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                            <TextBlock Text="Carpeta (opcional)" FontSize="12" FontWeight="SemiBold" />
+                            <TextBox x:Name="QuickCollectionBox" Margin="0,5,0,0" KeyDown="QuickUrlBox_KeyDown"
+                                     AutomationProperties.Name="Carpeta opcional dentro de UniShare"
+                                     ToolTip="Se crea automáticamente" />
+                        </StackPanel>
+                        <CheckBox x:Name="QuickOfflineCheck" Grid.Column="2" Margin="4,20,18,0"
+                                  Content="Copia offline" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <Button Content="Elegir archivo…" Margin="0,0,8,0" Click="NewItem_Click" />
+                            <Button x:Name="QuickSaveButton" Content="Guardar" Style="{StaticResource PrimaryButton}"
+                                    MinWidth="102" Click="QuickSave_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="2" Margin="22,16,22,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition x:Name="ContentListColumn" Width="1.55*" />
+                    <ColumnDefinition x:Name="DetailsColumn" Width="0.85*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Background="{DynamicResource PanelBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" Margin="0,0,12,0">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                        <Border Padding="16,13" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding ViewTitle}" FontSize="17" FontWeight="SemiBold" />
+                                    <TextBlock Text="  ·  " Foreground="{DynamicResource SecondaryTextBrush}" />
+                                    <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                </StackPanel>
+                                <ComboBox Grid.Column="1" Width="130" SelectedIndex="{Binding FilterIndex}" SelectionChanged="FilterChanged">
+                                    <ComboBoxItem Content="Todos" /><ComboBoxItem Content="Enlaces" />
+                                    <ComboBoxItem Content="Con archivos" /><ComboBoxItem Content="Híbridos" />
+                                </ComboBox>
+                                <Button Grid.Column="2" Content="{Binding DeleteActionLabel}" Margin="8,0,0,0" Padding="10,5"
+                                        Style="{StaticResource DangerButton}" Visibility="{Binding DeleteVisibility}"
+                                        Click="Delete_Click" />
+                                <Button Grid.Column="2" Content="{Binding RestoreActionLabel}" Margin="8,0,0,0" Padding="10,5"
+                                        Style="{StaticResource GhostButton}" Visibility="{Binding RestoreVisibility}"
+                                        Click="Restore_Click" />
+                            </Grid>
+                        </Border>
+                        <Grid Grid.Row="1">
+                            <ListBox x:Name="LibraryItemsList" ItemsSource="{Binding Items}" SelectedItem="{Binding SelectedItem}"
+                                     SelectionMode="Extended" SelectionChanged="LibraryItemsList_SelectionChanged"
+                                     BorderThickness="0" Background="Transparent" Padding="9,9,9,60"
+                                     AutomationProperties.Name="Elementos de la biblioteca"
+                                     KeyDown="LibraryItemsList_KeyDown" MouseDoubleClick="LibraryItemsList_MouseDoubleClick"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="11,8" MinHeight="72"
+                                              AutomationProperties.Name="{Binding AccessibilityLabel}">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="48" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource IconBackgroundBrush}" VerticalAlignment="Top">
+                                                <TextBlock Text="{Binding KindShort}" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource IconTextBrush}" FontSize="17" FontWeight="SemiBold" />
+                                            </Border>
+                                            <StackPanel Grid.Column="1" Margin="9,0,15,0">
+                                                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
+                                                <local:LinkifiedTextBlock ContentText="{Binding DescriptionPreview}" Margin="0,2,0,0"
+                                                                            Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding KindLabel}" Margin="0,3,0,0" FontSize="11" Foreground="{DynamicResource PrimaryBrush}" />
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Status}" Foreground="{DynamicResource StatusBrush}" HorizontalAlignment="Right" />
+                                                <TextBlock Text="{Binding UpdatedLabel}" Margin="0,4,0,0" FontSize="11"
+                                                           Foreground="{DynamicResource SecondaryTextBrush}" HorizontalAlignment="Right" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                            <Button Content="Cargar más" HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                    Margin="0,0,0,14" Padding="18,7" Visibility="{Binding LoadMoreVisibility}"
+                                    Click="LoadMore_Click" />
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding EmptyVisibility}">
+                                <Border Width="52" Height="52" CornerRadius="14" Background="{DynamicResource AccentSubtleBrush}" HorizontalAlignment="Center">
+                                    <TextBlock Text="＋" FontSize="26" Foreground="{DynamicResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="{Binding EmptyTitle}" Margin="0,13,0,0" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding EmptyDescription}" Margin="0,5,0,0" TextAlignment="Center" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource SecondaryTextBrush}" />
+                                <Button Content="Guardar el primer elemento" Margin="0,15,0,0" Style="{StaticResource PrimaryButton}"
+                                        Visibility="{Binding EmptyActionVisibility}" Click="ToggleQuickCapture_Click" />
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <Border x:Name="DetailsPanel" Grid.Column="1" Background="{DynamicResource PanelBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12">
+                    <Grid>
+                        <StackPanel Margin="18" Visibility="{Binding SelectionVisibility}">
+                            <Border Height="118" CornerRadius="11" Background="{DynamicResource AccentSubtleBrush}">
+                                <TextBlock Text="{Binding SelectedItem.KindShort}" FontSize="40" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Text="{Binding SelectedItem.Title}" Margin="0,16,0,0" FontSize="20" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding SelectedItem.Subtitle}" Margin="0,5,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" />
+                            <Border Margin="0,12,0,0" Padding="10" CornerRadius="8" Background="{DynamicResource AccentSubtleBrush}"
+                                    Visibility="{Binding MultiSelectionVisibility}">
+                                <TextBlock Text="{Binding SelectionSummary}" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource PrimaryBrush}" />
+                            </Border>
+                            <Border Margin="0,16,0,0" Padding="0,13" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Tipo" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding SelectedItem.KindLabel}" FontWeight="SemiBold" />
+                                </Grid>
+                            </Border>
+                            <Border Padding="0,13" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="Estado" Foreground="{DynamicResource SecondaryTextBrush}" />
+                                    <TextBlock Grid.Column="1" Text="{Binding SelectedItem.Status}" Foreground="{DynamicResource SuccessBrush}" />
+                                </Grid>
+                            </Border>
+                            <TextBlock Text="Resumen / notas" Margin="0,15,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <local:LinkifiedTextBlock ContentText="{Binding SelectedItem.DescriptionLabel}"
+                                                        Margin="0,6,0,0" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding SelectedItem.FavoriteLabel}" Margin="0,12,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
+                            <UniformGrid Columns="2" Margin="0,18,0,0">
+                                <Button Content="Abrir" Margin="0,0,5,0" Style="{StaticResource PrimaryButton}" Click="Open_Click" />
+                                <Button Content="Editar" Margin="5,0,0,0" Click="Edit_Click" />
+                            </UniformGrid>
+                            <Button Content="Guardar copia offline" Margin="0,8,0,0" Click="Download_Click" />
+                            <Button Content="{Binding DeleteActionLabel}" Margin="0,8,0,0" Style="{StaticResource DangerButton}"
+                                    Visibility="{Binding DeleteVisibility}" Click="Delete_Click"
+                                    AutomationProperties.HelpText="Mueve el elemento a la Papelera; se puede restaurar." />
+                            <Button Content="{Binding RestoreActionLabel}" Margin="0,8,0,0" Style="{StaticResource GhostButton}"
+                                    Visibility="{Binding RestoreVisibility}" Click="Restore_Click" />
+                        </StackPanel>
+                        <StackPanel Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding NoSelectionVisibility}">
+                            <TextBlock Text="Selecciona un elemento" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="Aquí podrás abrirlo, editarlo o guardarlo offline."
+                                       Margin="0,7,0,0" TextAlignment="Center" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource SecondaryTextBrush}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <Border Grid.Row="3" Margin="22,12,22,14" Padding="2,3">
+                <DockPanel>
+                    <TextBlock Text="{Binding StatusMessage}" AutomationProperties.LiveSetting="Polite"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                    <TextBlock DockPanel.Dock="Right" Text="Arrastra archivos o enlaces para guardarlos" HorizontalAlignment="Right"
+                               Foreground="{DynamicResource SecondaryTextBrush}" />
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>

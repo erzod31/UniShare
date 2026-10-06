@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Sólo para verificar el puente 10.0.2.2 del emulador. La aplicación valida ese host exacto. -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

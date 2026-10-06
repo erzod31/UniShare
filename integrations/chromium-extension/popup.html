@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guardar en UniShare</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-title-key="saveInUniShare">
+  <main>
+    <h1 data-i18n="saveInUniShare">Guardar en UniShare</h1>
+    <form id="captureForm">
+      <label for="title" data-i18n="title">Título</label>
+      <input id="title" maxlength="500" autocomplete="off" required>
+      <label for="collection" data-i18n="folderOptional">Carpeta (opcional)</label>
+      <input id="collection" maxlength="200" placeholder="Lecturas" data-i18n-placeholder="readingPlaceholder" autocomplete="off">
+      <label class="choice" for="saveOffline">
+        <input id="saveOffline" type="checkbox" checked aria-describedby="offlineHelp">
+        <span data-i18n="saveOffline">Guardar también una copia offline</span>
+      </label>
+      <p id="offlineHelp" class="help" data-i18n="offlineHelp">Conserva el texto renderizado y hasta 12 imágenes visibles, sin scripts.</p>
+      <button id="save" type="submit" data-i18n="saveTab">Guardar pestaña</button>
+    </form>
+    <p id="status" role="status" aria-live="polite" aria-atomic="true"></p>
+    <a href="options.html" target="_blank" data-i18n="configureConnection">Configurar conexión</a>
+  </main>
+  <script src="i18n.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

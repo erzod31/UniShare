@@ -1,0 +1,54 @@
+name: Informe de error
+description: Comunica un fallo reproducible usando datos sintéticos.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        No incluyas claves de emparejamiento, bibliotecas, respaldos, nombres `.ts.net`, IP privadas ni rutas con tu usuario.
+        Las vulnerabilidades deben comunicarse mediante un aviso privado según SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Versión
+      placeholder: "0.6.12"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Plataforma
+      options:
+        - Windows
+        - Android
+        - Extensión Chromium
+        - Sincronización entre plataformas
+        - Compilación o herramientas
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para reproducir
+      description: Usa URLs públicas o datos sintéticos.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Resultado esperado
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Resultado observado
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnóstico sanitizado
+      description: Elimina datos personales y secretos antes de pegar registros o capturas.

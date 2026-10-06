@@ -1,0 +1,40 @@
+<Window x:Class="UniShare.Desktop.DownloadsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Descargas de UniShare" Height="520" Width="900"
+        MinHeight="420" MinWidth="700" WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}"
+        Loaded="Window_Loaded">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="Descargas" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock Text="Las transferencias interrumpidas pueden reanudarse si el servidor conserva el mismo recurso."
+                       Foreground="{DynamicResource SecondaryTextBrush}" Margin="0,4,0,16" />
+        </StackPanel>
+        <DataGrid x:Name="JobsGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Single" HeadersVisibility="Column" CanUserAddRows="False"
+                  AutomationProperties.Name="Cola de descargas">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Estado" Binding="{Binding State}" Width="110" />
+                <DataGridTextColumn Header="Origen" Binding="{Binding Source}" Width="*" />
+                <DataGridTextColumn Header="Progreso" Binding="{Binding Progress}" Width="150" />
+                <DataGridTextColumn Header="Actualizado" Binding="{Binding Updated}" Width="145" />
+                <DataGridTextColumn Header="Error" Binding="{Binding Error}" Width="180" />
+            </DataGrid.Columns>
+        </DataGrid>
+        <DockPanel Grid.Row="2" Margin="0,14,0,0">
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource SecondaryTextBrush}" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Actualizar" Click="Refresh_Click" Padding="12,7" Margin="0,0,8,0" />
+                <Button Content="Reintentar" Click="Retry_Click" Padding="12,7" Margin="0,0,8,0" />
+                <Button Content="Cancelar" Click="Cancel_Click" Padding="12,7" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

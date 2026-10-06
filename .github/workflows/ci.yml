@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+
+      - name: Restore locked dependencies
+        run: dotnet restore UniShare.slnx --locked-mode
+
+      - name: Verify formatting
+        run: dotnet format UniShare.slnx --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build UniShare.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test UniShare.slnx -c Release --no-build --coverage --coverage-output-format cobertura --report-xunit-trx --results-directory artifacts/test-results
+
+      - name: Publish Windows application
+        run: |
+          dotnet restore src/UniShare.Desktop/UniShare.Desktop.csproj -r win-x64 --locked-mode -p:NuGetLockFilePath=packages.win-x64.lock.json
+          dotnet publish src/UniShare.Desktop/UniShare.Desktop.csproj -c Release -r win-x64 --self-contained true --no-restore -o artifacts/windows -p:SatelliteResourceLanguages=es -p:DebugSymbols=false -p:DebugType=None
+
+      - name: Smoke test packaged Windows application
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath ./artifacts/windows/UniShare.Desktop.exe -ArgumentList '--smoke-test','--profile','./artifacts/ci-smoke-profile' -Wait -PassThru -WindowStyle Hidden
+          if ($process.ExitCode -ne 0) { throw "Windows smoke test failed with exit code $($process.ExitCode)" }
+          if (-not (Test-Path ./artifacts/ci-smoke-profile/library.db)) { throw 'Windows smoke test did not create library.db' }
+
+      - name: Validate Chromium extension
+        shell: pwsh
+        run: ./packaging/chromium/test-extension.ps1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results
+          path: artifacts/test-results
+
+      - name: Upload Windows application
+        uses: actions/upload-artifact@v7
+        with:
+          name: unishare-windows-self-contained
+          path: artifacts/windows
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: platforms/android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+          cache-dependency-path: |
+            platforms/android/**/*.gradle*
+            platforms/android/gradle/wrapper/gradle-wrapper.properties
+
+      - name: Test, lint and assemble release
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon testDebugUnitTest testReleaseUnitTest lintRelease assembleRelease
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: unishare-android-release
+          path: platforms/android/app/build/outputs/apk/release/app-release.apk

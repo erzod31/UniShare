@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "UniShare" },
+  "extensionDescription": { "message": "Guarda la pestaña actual en tu biblioteca local UniShare." },
+  "actionTitle": { "message": "Guardar en UniShare" }
+}

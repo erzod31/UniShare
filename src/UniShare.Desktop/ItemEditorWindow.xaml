@@ -1,0 +1,59 @@
+<Window x:Class="UniShare.Desktop.ItemEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Guardar en UniShare" Height="670" Width="600" MinHeight="520" MinWidth="480"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+            <RowDefinition Height="*" /><RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <TextBlock Grid.Row="0" Text="Guardar elemento" FontSize="24" FontWeight="SemiBold" Margin="0,0,0,18" />
+        <StackPanel Grid.Row="1" Margin="0,0,0,12">
+            <TextBlock Text="Título *" />
+            <TextBox x:Name="TitleBox" Margin="0,4,0,0" Padding="8" AutomationProperties.Name="Título" />
+        </StackPanel>
+        <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <TextBlock Text="Enlace (opcional si eliges un archivo)" />
+            <TextBox x:Name="UrlBox" Margin="0,4,0,0" Padding="8" AutomationProperties.Name="Enlace" />
+        </StackPanel>
+        <StackPanel Grid.Row="3" Margin="0,0,0,12">
+            <TextBlock Text="Archivo (opcional si indicas un enlace)" />
+            <DockPanel Margin="0,4,0,0">
+                <Button DockPanel.Dock="Right" Content="Examinar..." Click="Browse_Click" Padding="12,7" Margin="8,0,0,0" />
+                <TextBox x:Name="FileBox" Padding="8" IsReadOnly="True" AutomationProperties.Name="Archivo seleccionado" />
+            </DockPanel>
+        </StackPanel>
+        <Grid Grid.Row="4" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                <TextBlock Text="Fuente" /><TextBox x:Name="SourceBox" Margin="0,4,0,0" Padding="8" AutomationProperties.Name="Fuente" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                <TextBlock Text="Autor" /><TextBox x:Name="AuthorBox" Margin="0,4,0,0" Padding="8" AutomationProperties.Name="Autor" />
+            </StackPanel>
+        </Grid>
+        <Grid Grid.Row="5" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,6,0">
+                <TextBlock Text="Etiquetas (separadas por comas)" /><TextBox x:Name="TagsBox" Margin="0,4,0,0" Padding="8" AutomationProperties.Name="Etiquetas separadas por comas" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                <TextBlock Text="Colecciones (separadas por comas)" /><TextBox x:Name="CollectionsBox" Margin="0,4,0,0" Padding="8" AutomationProperties.Name="Colecciones separadas por comas" />
+            </StackPanel>
+        </Grid>
+        <StackPanel Grid.Row="6">
+            <TextBlock Text="Resumen o notas" />
+            <TextBox x:Name="DescriptionBox" Margin="0,4,0,0" Padding="8" AcceptsReturn="True" Height="90"
+                     VerticalScrollBarVisibility="Auto" AutomationProperties.Name="Resumen o notas" />
+            <CheckBox x:Name="FavoriteBox" Content="Marcar como favorito" Margin="0,12,0,0" />
+        </StackPanel>
+        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+            <Button Content="Cancelar" IsCancel="True" Padding="14,8" Margin="0,0,8,0" />
+            <Button Content="Guardar" Click="Save_Click" IsDefault="True" Padding="14,8"
+                    Style="{StaticResource PrimaryButton}" />
+        </StackPanel>
+    </Grid>
+</Window>

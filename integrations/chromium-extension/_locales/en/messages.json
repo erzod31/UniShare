@@ -1,0 +1,5 @@
+{
+  "extensionName": { "message": "UniShare" },
+  "extensionDescription": { "message": "Save the current tab to your local UniShare library." },
+  "actionTitle": { "message": "Save to UniShare" }
+}

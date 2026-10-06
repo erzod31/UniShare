@@ -1,0 +1,39 @@
+<Window x:Class="UniShare.Desktop.ConflictsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Conflictos de sincronización" Height="470" Width="820"
+        MinHeight="360" MinWidth="660" Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}" Loaded="Window_Loaded">
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,14">
+            <TextBlock Text="Cambios que necesitan tu decisión" FontSize="23" FontWeight="SemiBold"
+                       Foreground="{DynamicResource PrimaryTextBrush}" />
+            <TextBlock Text="UniShare no sobrescribe ediciones simultáneas. Selecciona un conflicto y elige la versión que quieres conservar."
+                       Margin="0,5,0,0" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap" />
+        </StackPanel>
+        <DataGrid x:Name="ConflictsGrid" Grid.Row="1" AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Single" HeadersVisibility="Column" CanUserAddRows="False">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Mi versión" Binding="{Binding LocalTitle}" Width="*" />
+                <DataGridTextColumn Header="Versión recibida" Binding="{Binding RemoteTitle}" Width="*" />
+                <DataGridTextColumn Header="Detectado" Binding="{Binding CreatedAt, StringFormat=g}" Width="150" />
+            </DataGrid.Columns>
+        </DataGrid>
+        <DockPanel Grid.Row="2" Margin="0,14,0,0">
+            <TextBlock x:Name="StatusText" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite"
+                       Foreground="{DynamicResource SecondaryTextBrush}" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Conservar mi versión" Padding="14,9" Margin="0,0,8,0"
+                        Click="KeepLocal_Click" />
+                <Button Content="Usar la versión recibida" Padding="14,9" Margin="0,0,8,0"
+                        Style="{StaticResource PrimaryButton}" Click="UseRemote_Click" />
+                <Button Content="Cerrar" Padding="14,9" Click="Close_Click" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

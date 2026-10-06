@@ -1,0 +1,76 @@
+<Window x:Class="UniShare.Desktop.DirectSyncWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Conectar dispositivos" Height="900" Width="720"
+        MinHeight="660" MinWidth="650" Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryTextBrush}" WindowStartupLocation="CenterOwner">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="28">
+            <TextBlock Text="Conectar dispositivos y Edge" FontSize="26" FontWeight="SemiBold" />
+            <TextBlock x:Name="ServerStatus" Margin="0,7,0,20" FontWeight="SemiBold" TextWrapping="Wrap" />
+
+            <Border Margin="0,0,0,20" Padding="16" Background="{DynamicResource AccentSubtleBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="10">
+                <StackPanel>
+                    <TextBlock Text="Datos de conexión para Edge" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Margin="0,5,0,12" Foreground="{DynamicResource SecondaryTextBrush}" TextWrapping="Wrap"
+                               Text="Copia estos datos en las opciones de la extensión UniShare. La clave sólo se muestra en este equipo." />
+                    <TextBlock Text="Puerto local" FontWeight="SemiBold" />
+                    <DockPanel Margin="0,5,0,12">
+                        <Button DockPanel.Dock="Right" Content="Copiar puerto" Click="CopyPort_Click" Margin="8,0,0,0" />
+                        <TextBox x:Name="LocalPortBox" IsReadOnly="True" FontFamily="Consolas" />
+                    </DockPanel>
+                    <TextBlock Text="Clave privada" FontWeight="SemiBold" />
+                    <DockPanel Margin="0,5,0,0">
+                        <Button DockPanel.Dock="Right" Content="Copiar clave" Click="CopyPairingKey_Click" Margin="8,0,0,0" />
+                        <TextBox x:Name="PairingKeyBox" IsReadOnly="True" FontFamily="Consolas" />
+                    </DockPanel>
+                    <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap"
+                               Text="No compartas esta clave: permite guardar y sincronizar contenido con tu biblioteca." />
+                    <TextBlock x:Name="ConnectionStatus" Margin="0,8,0,0" FontWeight="SemiBold" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock Text="1. Conecta ambos dispositivos" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Margin="0,5,0,15" TextWrapping="Wrap"
+                       Text="Instala Tailscale en Windows y Android e inicia sesión en la misma red privada. No abras puertos del router." />
+
+            <TextBlock Text="2. Activa el acceso privado de UniShare" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Margin="0,5,0,6" Text="Ejecuta una vez este comando en PowerShell:" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Copiar comando" Click="CopyCommand_Click" Margin="8,0,0,0" />
+                <TextBox x:Name="CommandBox" IsReadOnly="True" FontFamily="Consolas" />
+            </DockPanel>
+            <TextBlock Margin="0,8,0,5" TextWrapping="Wrap"
+                       Text="Pega aquí la dirección HTTPS que muestra Tailscale (termina en .ts.net:8443):" />
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Guardar y crear QR" Click="SaveEndpoint_Click"
+                        Margin="8,0,0,0" Padding="12,6" />
+                <TextBox x:Name="EndpointBox" FontFamily="Consolas" VerticalContentAlignment="Center" />
+            </DockPanel>
+            <TextBlock x:Name="EndpointStatus" Margin="0,6,0,15" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+
+            <TextBlock Text="3. Escanea una sola vez" FontSize="18" FontWeight="SemiBold" />
+            <TextBlock Margin="0,5,0,10" TextWrapping="Wrap"
+                       Text="Instala la versión actual de UniShare en Android y escanea este QR con la cámara. La app se abrirá, guardará la conexión y descargará la biblioteca automáticamente." />
+            <Border x:Name="QrPanel" Padding="12" Background="White" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                    CornerRadius="8" HorizontalAlignment="Center" Visibility="Collapsed">
+                <Image x:Name="PairingQr" Width="280" Height="280" Stretch="Uniform" />
+            </Border>
+            <TextBlock x:Name="QrPlaceholder" Margin="0,16" HorizontalAlignment="Center" Foreground="{DynamicResource SecondaryTextBrush}"
+                       Text="Guarda primero la dirección de Tailscale para crear el QR." />
+            <Button x:Name="CopyPairingLinkButton" Content="Copiar enlace de emparejamiento"
+                    Click="CopyPairingLink_Click" HorizontalAlignment="Center" Margin="0,8,0,0"
+                    Visibility="Collapsed" Padding="14,7" />
+            <TextBlock Margin="0,10,0,20" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" TextAlignment="Center"
+                       Text="El QR contiene la clave privada de tu biblioteca. Escanéalo sólo con tu teléfono y no lo compartas." />
+
+            <Border Padding="14" Background="{DynamicResource AccentSubtleBrush}" CornerRadius="8">
+                <TextBlock TextWrapping="Wrap"
+                           Text="Después de emparejar, UniShare sincroniza al guardar, al abrir la app y periódicamente cuando Android la mantiene cerrada. Si un dispositivo no está disponible, conserva el cambio y lo reintenta." />
+            </Border>
+            <Button Content="Cerrar" HorizontalAlignment="Right" Margin="0,20,0,0" Padding="22,9"
+                    IsCancel="True" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

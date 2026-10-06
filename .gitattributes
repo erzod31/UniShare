@@ -1,0 +1,17 @@
+* text=auto
+*.cs text eol=crlf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.sh text eol=lf
+*.kt text eol=lf
+*.kts text eol=lf
+*.xml text eol=lf
+*.md text eol=lf
+*.png binary
+*.ico binary
+*.zip binary
+*.apk binary
+*.exe binary
+
+# Instrucciones locales de trabajo: no forman parte del proyecto público.
+AGENTS.md export-ignore

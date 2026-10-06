@@ -1,0 +1,22 @@
+:root { color-scheme: light dark; font: 14px/1.4 system-ui, sans-serif; }
+body { margin: 0; min-width: 330px; background: #f6f7fb; color: #172033; }
+main { padding: 20px; }
+main.options { max-width: 560px; }
+h1 { margin: 0 0 16px; font-size: 21px; }
+label { display: block; margin: 12px 0 4px; font-weight: 600; }
+input, select { box-sizing: border-box; width: 100%; padding: 9px 10px; border: 1px solid #bfc7d8; border-radius: 6px; background: white; color: #172033; }
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible { outline: 3px solid #7b61ff; outline-offset: 2px; }
+.choice { display: flex; gap: 9px; align-items: flex-start; margin-top: 16px; }
+.choice input { width: 20px; height: 20px; margin: 0; flex: 0 0 auto; }
+.help { margin: 5px 0 0 29px; color: #44516a; font-size: 13px; }
+button { width: 100%; margin-top: 16px; padding: 10px; border: 0; border-radius: 6px; background: #356ae6; color: white; font-weight: 650; cursor: pointer; }
+button:disabled { opacity: .6; cursor: default; }
+#status { min-height: 20px; color: #44516a; }
+a { color: #2857ba; }
+@media (prefers-color-scheme: dark) {
+  body { background: #171a21; color: #f0f3fa; }
+  input, select { background: #222733; color: #f0f3fa; border-color: #556079; }
+  #status { color: #c6cede; }
+  .help { color: #c6cede; }
+  a { color: #8bb0ff; }
+}
