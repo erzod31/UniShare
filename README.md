@@ -1,12 +1,200 @@
 # UniShare
 
+[English](#english) | [Español](#español)
+
+## English
+
+UniShare is a local-first personal library for saving links, files, captured web pages, and hybrid
+items without depending on an account or a central server.
+
+[Installation](docs/INSTALLATION.md) · [Privacy](docs/PRIVACY.md) · [Security](SECURITY.md) ·
+[Contributing](CONTRIBUTING.md) · [MIT License](LICENSE)
+
+### Download version 0.6.16
+
+Open the GitHub **Releases** section and download only the appropriate file:
+
+- Windows x64: `UniShare-Windows-Setup-0.6.16.exe`.
+- Portable Windows: `UniShare-Windows-0.6.16.zip`.
+- Android 8 or later: `UniShare-Android-0.6.16.apk`.
+- Chrome/Edge extension for development: `UniShare-Chromium-0.6.16.zip`.
+
+All packages are rebuilt and validated together before a release. The APK is still signed for
+development and must not be published as a Play Store release. The Windows installer is
+self-contained and does not require a separate .NET installation. The portable ZIP contains the
+same application. Always verify the published SHA-256 checksum and read the
+[installation guide](docs/INSTALLATION.md).
+
+> **Signing status:** the 0.6.16 installer is not yet Authenticode-signed, and the APK uses a
+> development key. These limitations are disclosed and these packages must not be confused with
+> signed store packages.
+
+### Features
+
+- Save and edit links, files, and hybrid items.
+- Collections, tags, favorites, full-text search, and batch actions.
+- Offline copies and safe static web-page capture.
+- Portable backups with hashes and content-addressed, deduplicated file storage.
+- Direct Windows–Android synchronization with explicit conflicts and no mandatory cloud.
+- Windows tray agent, Android Sharesheet/SAF integration, Chromium extension, and Obsidian export.
+- Spanish or English interface with a persistent, independent choice on each device.
+
+Data is stored locally. Capturing a web page contacts the selected site, and synchronization only
+connects paired devices. Read [Privacy](docs/PRIVACY.md) for details.
+
+### First launch on Windows
+
+You do not need to compile the application to use it: install the package from Releases. To develop
+from source, install the SDK pinned in `global.json`:
+
+```powershell
+dotnet restore UniShare.slnx
+dotnet build UniShare.slnx -c Release --no-restore
+dotnet test --solution UniShare.slnx -c Release --no-build
+dotnet run --project src/UniShare.Desktop/UniShare.Desktop.csproj
+```
+
+Data is stored under `%LOCALAPPDATA%\UniShare` unless `--profile <path>` is specified. Choose the
+language under **Options and tools > Language**. Windows and Android remember their own preference,
+and changing it does not alter saved data.
+
+### Save a link from Windows
+
+1. Select **Save**, then paste an `http://` or `https://` address into **Link**.
+2. Optionally enter a collection under **Folder inside UniShare**. Names such as `Work`, `Recipes`,
+   or `University/Course` create logical folders that do not break links when the library moves.
+3. Enable **Also save an offline copy** to download a verifiable local copy. Leave it disabled to
+   retain only the address and its basic metadata.
+4. Select **Save**. The panel closes and selects the new item so you can continue working with it.
+5. Select the result and choose **Edit information** to change its title, source, author,
+   description, favorite status, tags, or collections.
+
+UniShare reads the published title and creates an extractive summary from the actual content. It
+prioritizes `articleBody`, structured descriptions of the item, and then the semantic `<article>` or
+`<main>` body. For YouTube videos, it uses the video's original description. Navigation, forms,
+isolated URLs, and link-dominated blocks are excluded. Content is never sent to an external AI
+service. Installing 0.6.13 causes older links to be analyzed again, removes broken menu-based
+summaries, and preserves manually edited notes. You can repeat this operation from **Options and
+tools > Update titles and summaries** on Windows or from **Settings** on Android. Summaries are shown
+in read-only mode and their HTTP/HTTPS addresses are clickable. To intentionally change the text,
+open **Edit information** and select **Modify summary**.
+
+To remove an item, select it and choose **Delete**. To work with several items at once, use Ctrl/Shift
+in the Windows list or **Select** on Android. UniShare displays the count and lets you delete or
+restore the group. Deletion always requires confirmation and moves items to the **Trash**, where they
+can be restored. Recoverable changes also synchronize with other devices.
+
+If a download cannot be completed, the saved link remains intact and the job appears under
+**Options > View pending downloads**, where it can be retried. An extracted page title only replaces
+the automatic domain name; UniShare never overwrites a title edited by the user.
+
+**Change library…** in the sidebar lets you choose the physical folder containing the complete
+library (`library.db`, blobs, and staging). The application remembers this choice and restarts in that
+location. Collections organize content inside UniShare; blobs are stored by hash to deduplicate them
+and preserve their integrity.
+
+See [DEVELOPMENT.md](DEVELOPMENT.md) for commands and
+[docs/requirements.md](docs/requirements.md) for the project scope.
+
+The application can export a portable backup from **Options**. The `UniShare.Backup` utility,
+documented in `DEVELOPMENT.md`, can inspect or restore the archive into a new profile without
+overwriting existing data.
+
+### Synchronize Windows and Android
+
+Since version 0.4.4, manual package exchange is no longer used for synchronization. Windows acts as a
+local node, and Android connects directly over your home Wi-Fi or mobile data through a private
+Tailscale network:
+
+1. Install Tailscale on Windows and Android and sign in to the same tailnet.
+2. Open UniShare on Windows. The application enables its private Tailscale HTTPS route without
+   opening public ports.
+3. Open **Options > Connect phone** and use the phone's camera to scan the QR code shown by Windows.
+   The QR code contains the address and pairing key; do not share it.
+4. Android opens UniShare, saves the pairing, and immediately downloads the library. This step is
+   repeated only after reinstalling the application or clearing its data.
+
+Android sends changes as soon as they are saved. While Android is open, it checks for Windows changes
+every 15 seconds without transferring the library when nothing has changed; it also synchronizes
+immediately when opened. When it is closed, WorkManager retries when a connection is available and
+performs a periodic check whose Android-enforced minimum is 15 minutes. There is no data cloud:
+Tailscale only provides WireGuard connectivity, and UniShare additionally requires its own key. If
+one device is offline, the other retains its changes and sends them after reconnection. Simultaneous
+edits are never resolved by clock time: both versions are retained and appear under
+**Resolve conflicts**.
+
+Android 0.5.1 binds private connections to the active VPN and clearly distinguishes **Synchronized**
+from **Pending**. A MagicDNS error offers a retry action and direct access to Tailscale.
+
+Before reconciliation, Android and Windows compare their hash inventories. Since 0.6.9, each replica
+records modified entities and, after the first synchronization, sends only changed aggregates and
+missing blobs. Cursors advance only after the receiver confirms the package and the sender imports the
+response; an interruption resends the same delta idempotently. Tag and collection removals apply to
+the exact observed identity, while a concurrent new addition is preserved.
+
+On Windows, closing the window hides it in the system tray and keeps the synchronization node active.
+Double-click the icon to reopen it. Its menu lets you enable **Start with Windows** or choose
+**Exit completely**. Automatic startup is optional and runs after sign-in; it is not a system service
+that starts before login.
+
+### Android build
+
+`platforms/android` contains a Kotlin/Compose application for local links and text received through
+the Sharesheet. Build the optimized sideloading APK with the included wrapper:
+
+```powershell
+cd platforms/android
+.\gradlew.bat :app:testDebugUnitTest :app:assembleRelease :app:lintRelease
+```
+
+See [platforms/android/README.md](platforms/android/README.md) for SDK requirements, installation,
+emulator evidence, and limitations. Android supports links, files, hybrid items, complete metadata,
+organization, offline copies, portable backups, direct synchronization, and explicit conflicts. Files
+selected through SAF are checked by signature before entering the content-addressed store; active
+HTML/SVG and contradictory file types are rejected without leaving partial files, while Office,
+HEIC/AVIF, audio, and video files retain a useful type so they can be opened later.
+
+### Obsidian and browser extension
+
+On Windows, **Options > Export to Obsidian** creates a `UniShare` folder inside the vault with one
+stable note per UUID and its attachments. Later exports update only the managed block and preserve
+**Editable notes**. **Import notes from Obsidian** imports only that block after explicit confirmation.
+`UniShare/Index.md` provides a navigable entry point compatible with desktop and mobile Obsidian.
+
+The unpacked extension under `integrations/chromium-extension` saves the current tab from Chrome or
+Edge. It can retain only the link or create an offline copy containing the text already rendered by
+JavaScript and up to 12 visible images. See its `README.md`; it only connects to the authenticated
+local UniShare node.
+
+### Accessibility
+
+Windows supports high contrast, three text sizes under **Options and tools**, visible focus, and the
+shortcuts `Ctrl+L` (link), `Ctrl+F` (search), `Ctrl+N` (new), `Ctrl+E` (edit), and `F6` (switch region).
+Android adapts navigation for narrow screens or enlarged text, exposes action names to TalkBack, and
+allows all long forms to scroll.
+
+### Development and publishing
+
+- [DEVELOPMENT.md](DEVELOPMENT.md): toolchains, builds, tests, and temporary profiles.
+- [docs/architecture.md](docs/architecture.md): architecture and component boundaries.
+- [docs/requirements.md](docs/requirements.md): requirements and verifiable scope.
+- [docs/PUBLISHING.md](docs/PUBLISHING.md): create a new public repository without copying history or
+  private files.
+
+Never publish real libraries, backups, pairing keys, private `.ts.net` names, user paths, or
+certificates. Contributions are distributed under the [MIT License](LICENSE).
+
+---
+
+## Español
+
 UniShare es una biblioteca personal local-first para guardar enlaces, archivos, páginas capturadas y
 elementos híbridos sin depender de una cuenta ni de un servidor central.
 
 [Instalación](docs/INSTALLATION.md) · [Privacidad](docs/PRIVACY.md) · [Seguridad](SECURITY.md) ·
 [Contribuir](CONTRIBUTING.md) · [Licencia MIT](LICENSE)
 
-## Descargar la versión 0.6.16
+### Descargar la versión 0.6.16
 
 Abre la sección **Releases** de GitHub y descarga únicamente el archivo adecuado:
 
@@ -24,7 +212,7 @@ genera con el mismo contenido. Comprueba siempre el SHA-256 publicado y consulta
 > **Estado de firma:** el instalador 0.6.16 todavía no tiene Authenticode y el APK usa una clave de
 > desarrollo. Estas limitaciones son visibles y no deben confundirse con paquetes de tienda firmados.
 
-## Qué ofrece
+### Qué ofrece
 
 - Guardado y edición de enlaces, archivos y elementos híbridos.
 - Colecciones, etiquetas, favoritos, búsqueda FTS y acciones por lote.
@@ -37,7 +225,7 @@ genera con el mismo contenido. Comprueba siempre el SHA-256 publicado y consulta
 Los datos se guardan localmente. Al capturar una web se contacta con el sitio elegido; la sincronización
 sólo conecta dispositivos emparejados. Lee [Privacidad](docs/PRIVACY.md) para los detalles.
 
-## Primer arranque en Windows
+### Primer arranque en Windows
 
 Para usar la aplicación no necesitas compilar: instala el paquete de Releases. Para desarrollar desde
 el código fuente necesitas el SDK fijado en `global.json`:
@@ -53,7 +241,7 @@ Los datos se guardan bajo `%LOCALAPPDATA%\UniShare` salvo que se indique `--prof
 El idioma se elige en **Opciones y herramientas > Idioma**; Windows y Android recuerdan su propia
 preferencia y el cambio no altera los datos guardados.
 
-## Guardar un enlace desde Windows
+### Guardar un enlace desde Windows
 
 1. Pulsa **Guardar** y pega una dirección `http://` o `https://` en **Enlace**.
 2. Opcionalmente escribe una colección en **Carpeta dentro de UniShare**. Puedes usar nombres como
@@ -94,7 +282,7 @@ Consulta [DEVELOPMENT.md](DEVELOPMENT.md) para comandos y [docs/requirements.md]
 
 La aplicación permite exportar un respaldo portable desde **Opciones**. La utilidad `UniShare.Backup` documentada en `DEVELOPMENT.md` inspecciona o restaura el archivo en un perfil nuevo sin sobrescribir datos existentes.
 
-## Sincronizar Windows y Android
+### Sincronizar Windows y Android
 
 Desde la versión 0.4.4 se eliminó el intercambio manual de paquetes como mecanismo de sincronización. Windows
 actúa como nodo local y Android se conecta directamente, tanto en la Wi-Fi de casa como desde datos
@@ -129,7 +317,7 @@ doble clic en el icono para volver a abrirla; su menú permite activar **Iniciar
 **Salir completamente**. El inicio automático es optativo y funciona después de iniciar sesión, no como
 servicio del sistema previo al login.
 
-## Primer corte Android
+### Compilación para Android
 
 `platforms/android` contiene una aplicación Kotlin/Compose para enlaces locales y recepción de
 texto desde Sharesheet. Compila el APK lateral optimizado con el wrapper incluido:
@@ -146,7 +334,7 @@ Los archivos elegidos con SAF se contrastan por firma antes de entrar al CAS; HT
 contradictorios se rechazan sin dejar parciales, mientras Office, HEIC/AVIF, audio y vídeo conservan un
 tipo útil para abrirlos después.
 
-## Obsidian y extensión del navegador
+### Obsidian y extensión del navegador
 
 En Windows, **Opciones > Exportar a Obsidian** crea una carpeta `UniShare` dentro de la bóveda con
 una nota estable por UUID y sus adjuntos. Las siguientes exportaciones actualizan sólo el bloque
@@ -159,14 +347,14 @@ Chrome o Edge. Puede conservar sólo el enlace o crear una copia offline con el 
 renderizó y hasta 12 imágenes visibles. Consulta su `README.md`; se conecta sólo al nodo local autenticado
 de UniShare.
 
-## Accesibilidad
+### Accesibilidad
 
 Windows admite alto contraste, tres tamaños de texto desde **Opciones y herramientas**, foco visible y
 los atajos `Ctrl+L` (enlace), `Ctrl+F` (buscar), `Ctrl+N` (nuevo), `Ctrl+E` (editar) y `F6` (cambiar de
 región). Android adapta la navegación a pantallas estrechas o texto ampliado, publica nombres de acción
 para TalkBack y permite desplazar todos los formularios largos.
 
-## Desarrollo y publicación
+### Desarrollo y publicación
 
 - [DEVELOPMENT.md](DEVELOPMENT.md): toolchains, compilación, pruebas y perfiles temporales.
 - [docs/architecture.md](docs/architecture.md): arquitectura y límites entre componentes.
