@@ -60,10 +60,16 @@ public sealed class MetadataEditorWindowTests
             {
                 failure = exception;
             }
-        });
+        })
+        {
+            IsBackground = true,
+            Name = "UniShare.WpfTest",
+        };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(10)), "La comprobación WPF no terminó a tiempo.");
+        Assert.True(
+            thread.Join(TimeSpan.FromSeconds(60)),
+            "La comprobación WPF no terminó en 60 segundos.");
         if (failure is not null)
         {
             ExceptionDispatchInfo.Capture(failure).Throw();

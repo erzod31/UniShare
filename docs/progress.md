@@ -856,3 +856,8 @@ restauración Android. La captura y persistencia del enlace sí están verificad
 - La limpieza final retiró a la Papelera 22 paquetes/directorios de artefactos 0.6.14–0.6.15 y 22
   directorios regenerables de compilación, pruebas y caché. Se preservaron los adjuntos de la auditoría,
   el perfil del usuario y únicamente los ocho paquetes 0.6.16 más su fichero de hashes.
+- La primera ejecución pública de GitHub Actions reveló un timeout de 10 segundos en la única prueba WPF
+  STA bajo instrumentación de cobertura. Se mantuvo la prueba, se convirtió su hilo en background y se
+  amplió el margen a 60 segundos; la misma orden CI volvió a pasar localmente 105/105 antes del push.
+- El disparador de Actions se acotó a `main` y pull requests para que etiquetar exactamente el mismo
+  commit publicado no ejecute una segunda matriz idéntica.

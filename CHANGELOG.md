@@ -9,6 +9,8 @@ permanece en la serie `0.x`.
 
 - Windows respeta las solicitudes de apagado de Restart Manager para que una actualización pueda cerrar
   limpiamente el agente de bandeja en vez de fallar por archivos bloqueados.
+- La prueba WPF de edición usa un hilo STA de fondo y un margen compatible con hosts CI fríos, evitando
+  un falso timeout sin omitir la comprobación visual de sólo lectura.
 - El servidor de sincronización ya no puede dejar bloqueadas las operaciones posteriores si falla la
   preparación de su carpeta temporal.
 - Los estados de descargas y conflictos de Windows y los principales resultados de Android respetan el
@@ -22,6 +24,8 @@ permanece en la serie `0.x`.
   8.13 porque Core 1.19 exige API 37 y AGP 9.1.
 - La CI y el empaquetado validan todo el JavaScript, JSON, recursos del manifiesto y paridad de idiomas
   de la extensión Chromium.
+- La CI se ejecuta en `main` y pull requests, sin duplicar toda la matriz al crear una etiqueta de
+  Release para un commit ya validado.
 - La instantánea pública inspecciona también HTML, CSS, JavaScript, Inno Setup y archivos Gradle al
   buscar rutas privadas, identidades Tailscale o secretos.
 
