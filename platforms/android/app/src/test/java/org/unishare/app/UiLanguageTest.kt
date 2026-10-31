@@ -15,6 +15,22 @@ class UiLanguageTest {
         UiStrings.current = UiLanguageChoice.ENGLISH
 
         assertEquals("Save", UiStrings.translate("Guardar"))
+        assertEquals("The download ended with a different size than announced",
+            UiStrings.translate("La descarga terminó con un tamaño distinto al anunciado"))
+        assertEquals("Connect this phone first to retrieve your library.",
+            UiStrings.translate("Conecta primero este teléfono para recuperar tu biblioteca."))
+        assertEquals(
+            "Synchronization pending: UniShare needs local network permission to synchronize directly.",
+            UiStrings.translate(
+                "Sincronización pendiente: UniShare necesita permiso de red local para sincronizar directamente.",
+            ),
+        )
+        assertEquals(
+            "2026-10-15T10:00:00Z: pending: UniShare needs local network permission to synchronize directly.",
+            UiStrings.translate(
+                "2026-10-15T10:00:00Z: pendiente: UniShare necesita permiso de red local para sincronizar directamente.",
+            ),
+        )
         assertEquals("Folder: Reading  ×", UiStrings.translate("Carpeta: Reading  ×"))
         assertEquals("Delete (4)", UiStrings.translate("Eliminar (4)"))
         assertEquals("4 items selected", UiStrings.translate("4 elementos seleccionados"))

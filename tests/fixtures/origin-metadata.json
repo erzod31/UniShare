@@ -1,0 +1,321 @@
+{
+  "cases": [
+    {
+      "name": "a-single-subject-hashtag-is-not-discarded-from-a-short-heading",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"Cómo organizar tus notas con #Obsidian\"}}}</script>"],
+      "description": "Cómo organizar tus notas con #Obsidian",
+      "expectedTitle": "Cómo organizar tus notas con #Obsidian"
+    },
+    {
+      "name": "long-caption-fallback-becomes-a-short-word-bounded-title",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"Cómo organizar una biblioteca personal con enlaces, archivos y notas para encontrar cualquier contenido sin perder información importante. #biblioteca #organización\"}}}</script>"],
+      "description": "Cómo organizar una biblioteca personal con enlaces, archivos y notas para encontrar cualquier contenido sin perder información importante. #biblioteca #organización",
+      "expectedTitle": "Cómo organizar una biblioteca personal con enlaces, archivos y notas para…",
+      "currentTitle": "Cómo organizar una biblioteca personal con enlaces, archivos y notas para encontrar cualquier contenido sin perder información importante. #biblioteca #organización",
+      "resolvedTitle": "Cómo organizar una biblioteca personal con enlaces, archivos y notas para…"
+    },
+    {
+      "name": "caption-links-and-tags-stay-in-description-instead-of-the-title",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"Un paseo por las montañas 🏔️ #naturaleza #senderismo https://example.com/ruta\"}}}</script>"],
+      "description": "Un paseo por las montañas 🏔️ #naturaleza #senderismo https://example.com/ruta",
+      "expectedTitle": "Un paseo por las montañas 🏔️"
+    },
+    {
+      "name": "short-caption-heading-stays-short-and-unchanged",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"Café de la mañana ☕\\nHoy comparto los pasos de esta receta.\"}}}</script>"],
+      "description": "Café de la mañana ☕\nHoy comparto los pasos de esta receta.",
+      "expectedTitle": "Café de la mañana ☕",
+      "currentTitle": "Café de la mañana ☕",
+      "resolvedTitle": "Café de la mañana ☕"
+    },
+    {
+      "name": "a-personal-long-title-is-not-mistaken-for-the-old-caption-fallback",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"Nota de fuente diferente\"}}}</script>"],
+      "description": "Nota de fuente diferente",
+      "expectedTitle": "Nota de fuente diferente",
+      "currentTitle": "Este es un título personalizado largo que elegí manualmente y quiero conservar aunque no coincida con el encabezado automático de la publicación original",
+      "resolvedTitle": "Este es un título personalizado largo que elegí manualmente y quiero conservar aunque no coincida con el encabezado automático de la publicación original"
+    },
+    {
+      "name": "tiktok-make-your-day-placeholder-is-replaced-by-the-content-heading",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<title>TikTok - Make Your Day</title><script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"Receta de pan casero 🍞\\nTodos los pasos de la receta.\"}}}</script>"],
+      "description": "Receta de pan casero 🍞\nTodos los pasos de la receta.",
+      "expectedTitle": "Receta de pan casero 🍞",
+      "currentTitle": "TikTok - Make Your Day",
+      "resolvedTitle": "Receta de pan casero 🍞"
+    },
+    {
+      "name": "tiktok-explicit-title-is-the-item-title",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<meta property='og:title' content='TikTok · Creadora'><script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"title\":\"Cómo preparar ramen\",\"desc\":\"La receta completa 🍜\\n#cocina\"}}}</script>"],
+      "description": "La receta completa 🍜\n#cocina",
+      "expectedTitle": "Cómo preparar ramen",
+      "currentTitle": "TikTok · Creadora",
+      "resolvedTitle": "Cómo preparar ramen"
+    },
+    {
+      "name": "tiktok-photo-title-is-distinct-from-its-caption",
+      "url": "https://www.tiktok.com/@creadora/photo/7300000000000000001",
+      "html": ["<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"title\":\" \",\"imagePost\":{\"title\":\"Un otoño en el bosque\"},\"desc\":\"Fotos de esta mañana 🍂 #otoño\"}}}</script>"],
+      "description": "Fotos de esta mañana 🍂 #otoño",
+      "expectedTitle": "Un otoño en el bosque"
+    },
+    {
+      "name": "structured-video-name-is-a-title-not-the-description",
+      "url": "https://example.com/watch/one",
+      "html": ["<meta property='og:title' content='Plataforma de vídeos'><script type='application/ld+json'>{\"@type\":\"VideoObject\",\"url\":\"https://example.com/watch/one\",\"name\":\"Una ruta por la montaña\",\"description\":\"Así fue el amanecer 🌄\"}</script>"],
+      "description": "Así fue el amanecer 🌄",
+      "expectedTitle": "Una ruta por la montaña"
+    },
+    {
+      "name": "article-headline-is-the-item-title",
+      "url": "https://example.com/article/one",
+      "html": ["<title>Periódico local</title><script type='application/ld+json'>{\"@type\":\"NewsArticle\",\"url\":\"https://example.com/article/one\",\"headline\":\"Abre una nueva biblioteca\",\"articleBody\":\"La nueva biblioteca ofrece acceso a libros y recursos de consulta para todo el vecindario. Sus puertas abren el lunes por la mañana.\"}</script>"],
+      "description": "La nueva biblioteca ofrece acceso a libros y recursos de consulta para todo el vecindario. Sus puertas abren el lunes por la mañana.",
+      "expectedTitle": "Abre una nueva biblioteca"
+    },
+    {
+      "name": "unrelated-title-and-organization-name-are-ignored",
+      "url": "https://example.com/watch/one",
+      "html": ["<meta property='og:title' content='Título de esta página'><script type='application/ld+json'>[{\"@type\":\"Organization\",\"name\":\"Nombre del sitio\"},{\"@type\":\"VideoObject\",\"url\":\"https://example.com/watch/two\",\"name\":\"Título de otra publicación\",\"description\":\"Texto ajeno\"}]</script>"],
+      "description": null,
+      "expectedTitle": "Título de esta página"
+    },
+    {
+      "name": "tiktok-personal-title-is-preserved-on-refresh",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<meta property='og:title' content='TikTok · Creadora'><script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"Un momento especial ✨\"}}}</script>"],
+      "description": "Un momento especial ✨",
+      "expectedTitle": "Un momento especial ✨",
+      "currentTitle": "Mi título personal",
+      "resolvedTitle": "Mi título personal"
+    },
+    {
+      "name": "provider-like-personal-title-must-match-the-page-before-replacing",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<meta property='og:title' content='TikTok · Creadora'><script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"Un momento especial ✨\"}}}</script>"],
+      "description": "Un momento especial ✨",
+      "expectedTitle": "Un momento especial ✨",
+      "currentTitle": "TikTok · Mi carpeta personal",
+      "resolvedTitle": "TikTok · Mi carpeta personal"
+    },
+    {
+      "name": "tiktok-mobile-reflow-caption-beats-unrelated-desktop-item",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<script id='__UNIVERSAL_DATA_FOR_REHYDRATION__'>{\"__DEFAULT_SCOPE__\":{\"webapp.video-detail\":{\"itemInfo\":{\"itemStruct\":{\"id\":\"7300000000000000002\",\"desc\":\"Otro vídeo\"}}},\"webapp.reflow.video.detail\":{\"itemInfo\":{\"itemStruct\":{\"id\":\"7300000000000000001\",\"desc\":\"Mi publicación desde el móvil 📱\\n#original\",\"author\":{\"nickname\":\"Autora móvil\"},\"challenges\":[{\"desc\":\"No usar este texto\"}]}},\"shareMeta\":{\"desc\":\"Texto comercial del sitio\"}}}}</script>"],
+      "description": "Mi publicación desde el móvil 📱\n#original",
+      "author": "Autora móvil"
+    },
+    {
+      "name": "tiktok-mobile-empty-caption-is-known-and-not-share-meta",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<script id='__UNIVERSAL_DATA_FOR_REHYDRATION__'>{\"__DEFAULT_SCOPE__\":{\"webapp.reflow.video.detail\":{\"itemInfo\":{\"itemStruct\":{\"id\":\"7300000000000000001\",\"desc\":\"\",\"author\":\"sin-pie-movil\"}},\"shareMeta\":{\"desc\":\"Visita la plataforma y descubre las últimas tendencias\"}}}}</script>"],
+      "description": null,
+      "author": "sin-pie-movil"
+    },
+    {
+      "name": "tiktok-mobile-wrong-post-is-never-a-caption",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<script id='__UNIVERSAL_DATA_FOR_REHYDRATION__'>{\"__DEFAULT_SCOPE__\":{\"webapp.reflow.video.detail\":{\"itemInfo\":{\"itemStruct\":{\"id\":\"7300000000000000002\",\"desc\":\"La descripción corresponde a otra publicación y debe omitirse.\"}},\"shareMeta\":{\"desc\":\"No confundir compartir con el contenido original\"}}}}</script>"],
+      "description": null
+    },
+    {
+      "name": "unquoted-standard-jsonld-attribute",
+      "url": "https://example.com/video/one",
+      "html": ["<script type=application/ld+json>{\"@type\":\"VideoObject\",\"description\":\"Un momento especial 🌅\"}</script>"],
+      "description": "Un momento especial 🌅"
+    },
+    {
+      "name": "typed-array-and-main-entity-bind-the-content",
+      "url": "https://example.com/watch?v=one&utm_source=share",
+      "html": ["<script type='application/ld+json'>{\"@type\":[\"Thing\",\"VideoObject\"],\"mainEntityOfPage\":{\"@id\":\"https://example.com/watch?v=one#video\"},\"url\":\"https://media.example.com/player\",\"description\":\"Es el vídeo correcto 🎬\"}</script>"],
+      "description": "Es el vídeo correcto 🎬"
+    },
+    {
+      "name": "unrelated-article-body-does-not-override-visible-content",
+      "url": "https://example.com/article/one",
+      "html": [
+        "<script type='application/ld+json'>{\"@type\":\"Article\",\"url\":\"https://example.com/article/another\",\"articleBody\":\"Una noticia diferente anuncia un producto y no describe el contenido que se está guardando ahora.\"}</script>",
+        "<main><p>El contenido visible pertenece al elemento solicitado y describe cómo mantener una biblioteca local. Incluye los pasos para conservar los datos.</p></main>"
+      ],
+      "description": "El contenido visible pertenece al elemento solicitado y describe cómo mantener una biblioteca local. Incluye los pasos para conservar los datos."
+    },
+    {
+      "name": "tiktok-single-emoji-is-a-valid-caption",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": ["<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"🫶\"}}}</script>"],
+      "description": "🫶"
+    },
+    {
+      "name": "ambiguous-unbound-videos-are-not-guessed",
+      "url": "https://example.com/watch/one",
+      "html": ["<script type='application/ld+json'>[{\"@type\":\"VideoObject\",\"description\":\"Primera publicación\"},{\"@type\":\"VideoObject\",\"description\":\"Otra publicación\"}]</script>"],
+      "description": null
+    },
+    {
+      "name": "explicit-identity-wins-across-jsonld-scripts",
+      "url": "https://example.com/watch/one",
+      "html": [
+        "<script type='application/ld+json'>{\"@type\":\"VideoObject\",\"description\":\"Descripción sin identidad\"}</script>",
+        "<script type='application/ld+json'>{\"@type\":\"VideoObject\",\"url\":\"https://example.com/watch/one\",\"description\":\"Este sí 🎯\"}</script>"
+      ],
+      "description": "Este sí 🎯"
+    },
+    {
+      "name": "query-identity-does-not-confuse-different-videos",
+      "url": "https://example.com/watch?v=one",
+      "html": ["<script type='application/ld+json'>{\"@type\":\"VideoObject\",\"url\":\"https://example.com/watch?v=two\",\"description\":\"Esta descripción pertenece a un vídeo distinto del elemento que se está guardando.\"}</script>"],
+      "description": null
+    },
+    {
+      "name": "tiktok-short-caption-equals-title",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001?utm_source=share",
+      "html": [
+        "<title>¡Qué paisaje! 🌄 #montaña</title>",
+        "<meta property='og:description' content='Publicidad del sitio'>",
+        "<script id='__UNIVERSAL_DATA_FOR_REHYDRATION__' type='application/json'>{\"__DEFAULT_SCOPE__\":{\"webapp.video-detail\":{\"itemInfo\":{\"itemStruct\":{\"id\":\"7300000000000000001\",\"desc\":\"¡Qué paisaje! 🌄 #montaña\",\"author\":{\"nickname\":\"Creadora original\"}}}}}}</script>"
+      ],
+      "description": "¡Qué paisaje! 🌄 #montaña",
+      "author": "Creadora original"
+    },
+    {
+      "name": "tiktok-keeps-lines-links-and-not-a-recommendation",
+      "url": "https://www.tiktok.com/@cocina/video/7300000000000000001",
+      "html": [
+        "<title>Receta</title>",
+        "<script id='__UNIVERSAL_DATA_FOR_REHYDRATION__'>{\"__DEFAULT_SCOPE__\":{\"recommendations\":{\"desc\":\"Descripción de otro vídeo que nunca debe elegirse.\"},\"webapp.video-detail\":{\"itemInfo\":{\"itemStruct\":{\"id\":\"7300000000000000001\",\"desc\":\"Receta rápida 🍜\\n#cocina https://example.com/receta\",\"author\":{\"uniqueId\":\"cocina\"},\"music\":{\"desc\":\"No es el pie del vídeo\"}}}}}}</script>"
+      ],
+      "description": "Receta rápida 🍜\n#cocina https://example.com/receta",
+      "author": "cocina"
+    },
+    {
+      "name": "tiktok-legacy-item-module",
+      "url": "https://m.tiktok.com/@creadora/video/7300000000000000001",
+      "html": [
+        "<title>TikTok</title>",
+        "<script id=SIGI_STATE>{\"ItemModule\":{\"7300000000000000002\":{\"id\":\"7300000000000000002\",\"desc\":\"Otro elemento\"},\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"#original #sinFiltro ✨\",\"author\":\"creadora\"}}}</script>"
+      ],
+      "description": "#original #sinFiltro ✨",
+      "author": "creadora"
+    },
+    {
+      "name": "tiktok-persisted-photo-caption",
+      "url": "https://www.tiktok.com/@creadora/photo/7300000000000000001",
+      "html": [
+        "<script type='application/json' id='sigi-persisted-data'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"Un día de lluvia ☔\",\"authorInfo\":{\"nickname\":\"Fotos originales\"}}}}</script>"
+      ],
+      "description": "Un día de lluvia ☔",
+      "author": "Fotos originales"
+    },
+    {
+      "name": "tiktok-never-uses-different-post-id",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": [
+        "<script id='__UNIVERSAL_DATA_FOR_REHYDRATION__'>{\"__DEFAULT_SCOPE__\":{\"webapp.video-detail\":{\"itemInfo\":{\"itemStruct\":{\"id\":\"7300000000000000002\",\"desc\":\"Descripción convincente pero perteneciente a una recomendación diferente.\"}}}}}</script>",
+        "<main><p>Otros vídeos que te pueden interesar en la plataforma y enlaces para registrarte y descubrir contenido.</p></main>"
+      ],
+      "description": null
+    },
+    {
+      "name": "tiktok-lookalike-domain-is-not-a-provider",
+      "url": "https://not-tiktok.com/@creadora/video/7300000000000000001",
+      "html": [
+        "<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"No confiar en un dominio parecido\"}}}</script>"
+      ],
+      "description": null
+    },
+    {
+      "name": "tiktok-profile-is-not-its-first-video",
+      "url": "https://www.tiktok.com/@creadora",
+      "html": [
+        "<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"No usar el primer vídeo de un perfil\"}}}</script>"
+      ],
+      "description": null
+    },
+    {
+      "name": "tiktok-empty-caption-is-not-navigation",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": [
+        "<script id='__UNIVERSAL_DATA_FOR_REHYDRATION__'>{\"__DEFAULT_SCOPE__\":{\"webapp.video-detail\":{\"itemInfo\":{\"itemStruct\":{\"id\":\"7300000000000000001\",\"desc\":\"\",\"author\":{\"nickname\":\"Sin pie\"}}}}}}</script>",
+        "<meta name='description' content='Únete a TikTok y descubre millones de vídeos y tendencias.'>",
+        "<main><p>Inicia sesión para descubrir más vídeos, seguir las tendencias y encontrar nuevas publicaciones populares.</p></main>"
+      ],
+      "description": null,
+      "author": "Sin pie"
+    },
+    {
+      "name": "tiktok-malformed-json-has-no-promotional-fallback",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": [
+        "<script id='__UNIVERSAL_DATA_FOR_REHYDRATION__'>{invalid}</script>",
+        "<meta property='og:description' content='Compra ahora la mejor oferta del año'>"
+      ],
+      "description": null
+    },
+    {
+      "name": "tiktok-escaped-unicode-is-literal-text",
+      "url": "https://www.tiktok.com/@creadora/video/7300000000000000001",
+      "html": [
+        "<script id='SIGI_STATE'>{\"ItemModule\":{\"7300000000000000001\":{\"id\":\"7300000000000000001\",\"desc\":\"\\ud83c\\udf0a \\\"Hola\\\" <3 & música\"}}}</script>"
+      ],
+      "description": "🌊 \"Hola\" <3 & música"
+    },
+    {
+      "name": "video-description-is-not-organization-description",
+      "url": "https://example.com/watch/one",
+      "html": [
+        "<title>Un instante ✨</title>",
+        "<script type='application/ld+json'>{\"@graph\":[{\"@type\":\"Organization\",\"description\":\"La mejor plataforma del mercado para publicar y descubrir contenido audiovisual cada día.\"},{\"@type\":\"VideoObject\",\"url\":\"https://example.com/watch/one\",\"description\":\"Un instante ✨\"}]}</script>"
+      ],
+      "description": "Un instante ✨"
+    },
+    {
+      "name": "photo-caption-from-typed-content",
+      "url": "https://example.com/photos/one?utm_source=share",
+      "html": [
+        "<script type='application/ld+json'>{\"@type\":\"https://schema.org/ImageObject\",\"url\":\"https://example.com/photos/one\",\"caption\":\"Luz de otoño 🍂 #foto\"}</script>"
+      ],
+      "description": "Luz de otoño 🍂 #foto"
+    },
+    {
+      "name": "social-post-text-is-a-caption",
+      "url": "https://example.com/posts/one",
+      "html": [
+        "<script type='application/ld+json'>{\"@type\":\"SocialMediaPosting\",\"url\":\"https://example.com/posts/one\",\"text\":\"Gracias ❤️ #comunidad\"}</script>"
+      ],
+      "description": "Gracias ❤️ #comunidad"
+    },
+    {
+      "name": "unrelated-jsonld-video-does-not-leak-into-item",
+      "url": "https://example.com/watch/one",
+      "html": [
+        "<script type='application/ld+json'>{\"@type\":\"VideoObject\",\"url\":\"https://example.com/watch/another\",\"description\":\"Esta descripción es suficientemente larga, pero corresponde a otro elemento y debe descartarse.\"}</script>"
+      ],
+      "description": null
+    },
+    {
+      "name": "article-keeps-extractive-prose-policy",
+      "url": "https://example.com/article",
+      "html": [
+        "<title>Investigación</title>",
+        "<script type='application/ld+json'>{\"@type\":\"Article\",\"articleBody\":\"La investigación compara varias formas de conservar los documentos sin depender de una nube. Sus resultados permiten verificar la recuperación de cada copia local.\"}</script>"
+      ],
+      "description": "La investigación compara varias formas de conservar los documentos sin depender de una nube. Sus resultados permiten verificar la recuperación de cada copia local."
+    },
+    {
+      "name": "generic-marketing-is-still-not-a-summary",
+      "url": "https://example.com/product",
+      "html": [
+        "<title>Producto</title><meta property='og:description' content='La mejor oferta del año: compra ahora y consigue acceso exclusivo.'>",
+        "<main><p>Comprar</p><p>Iniciar sesión</p></main>"
+      ],
+      "description": null
+    }
+  ]
+}

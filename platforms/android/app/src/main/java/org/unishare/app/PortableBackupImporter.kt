@@ -274,8 +274,7 @@ class PortableBackupImporter(private val context: Context) {
             val hash = asset.getString("sha256")
             val relativePath = blobPath(hash)
             val destination = File(context.filesDir, relativePath)
-            if (destination.exists()) {
-                require(hashFile(destination) == hash) { "Existe un blob local dañado: $hash" }
+            if (LocalBlobIntegrity.matches(destination, hash, asset.getLong("byte_length"))) {
                 return@forEach
             }
             destination.parentFile?.mkdirs()
@@ -290,8 +289,7 @@ class PortableBackupImporter(private val context: Context) {
                 require(partial.length() == asset.getLong("byte_length") && hashFile(partial) == hash) {
                     "El blob $hash no coincide con sus metadatos"
                 }
-                require(partial.renameTo(destination)) { "No se pudo conservar el blob $hash" }
-                imported++
+                if (BlobPromotion.promote(context, partial, destination, hash, asset.getLong("byte_length"))) imported++
             } finally {
                 partial.delete()
             }

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using UniShare.Application;
 
@@ -23,20 +24,39 @@ public sealed class ObsidianVaultService(
         var assetsRoot = Path.Combine(notesRoot, "assets");
         Directory.CreateDirectory(notesRoot);
         Directory.CreateDirectory(assetsRoot);
+        var indexPath = Path.Combine(notesRoot, IndexFileName);
+        if (File.Exists(indexPath) && !HasFrontMatterValue(
+            await File.ReadAllTextAsync(indexPath, cancellationToken), "unishare_index", "true"))
+        {
+            throw new InvalidDataException("El índice de destino de Obsidian no pertenece a UniShare. Conserva el archivo o elige otra bóveda.");
+        }
 
         var items = await repository.GetAllAsync(includeDeleted: false, cancellationToken);
         var assetCount = 0;
         var preservedNotes = 0;
+        var expectedNotes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var expectedAssets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var previouslyReferencedAssets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var item in items)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var notePath = Path.Combine(notesRoot, $"{item.Id:D}.md");
-            var existingNotes = File.Exists(notePath)
-                ? ExtractNotes(await File.ReadAllTextAsync(notePath, cancellationToken))
+            expectedNotes.Add(notePath);
+            var existingText = File.Exists(notePath)
+                ? await File.ReadAllTextAsync(notePath, cancellationToken)
                 : null;
+            var existingNotes = existingText is null ? null : ExtractNotes(existingText);
+            if (existingText is not null && !IsManagedNote(existingText, item.Id))
+            {
+                throw new InvalidDataException("La nota de destino de Obsidian no tiene marcadores válidos de UniShare. Conserva el archivo o elige otra bóveda.");
+            }
             if (existingNotes is not null)
             {
                 preservedNotes++;
+            }
+            if (existingText is not null && IsManagedNote(existingText, item.Id))
+            {
+                CollectManagedAssetPaths(existingText, assetsRoot, previouslyReferencedAssets);
             }
 
             var organization = await repository.GetOrganizationAsync(item.Id, cancellationToken);
@@ -46,9 +66,15 @@ public sealed class ObsidianVaultService(
                 var extension = SafeExtension(asset.OriginalName);
                 var destinationName = $"{asset.Id:D}{extension}";
                 var destination = Path.Combine(assetsRoot, destinationName);
+                expectedAssets.Add(destination);
                 var source = blobStore.GetAbsolutePath(asset.RelativePath);
-                if (!File.Exists(destination))
+                if (!await MatchesAssetAsync(destination, asset, cancellationToken))
                 {
+                    if (!await MatchesAssetAsync(source, asset, cancellationToken))
+                    {
+                        throw new InvalidDataException(
+                            $"El archivo original de {asset.OriginalName} está ausente o dañado.");
+                    }
                     await CopyAtomicallyAsync(source, destination, cancellationToken);
                 }
 
@@ -60,11 +86,34 @@ public sealed class ObsidianVaultService(
                 organization,
                 assets,
                 existingNotes ?? item.Description ?? string.Empty);
+            if (existingText is not null)
+            {
+                text = ReplaceManagedBlock(existingText, text);
+            }
             await WriteAtomicallyAsync(notePath, text, cancellationToken);
         }
 
+        preservedNotes += await RemoveStaleManagedNotesAsync(
+            notesRoot, assetsRoot, expectedNotes, previouslyReferencedAssets, cancellationToken);
+        var externallyReferencedAssets = await FindReferencedAssetNamesAsync(
+            vaultRoot,
+            previouslyReferencedAssets
+                .Where(path => !expectedAssets.Contains(path))
+                .Select(Path.GetFileName)
+                .OfType<string>(),
+            cancellationToken);
+        foreach (var staleAsset in previouslyReferencedAssets.Where(path => !expectedAssets.Contains(path)))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (File.Exists(staleAsset) &&
+                !externallyReferencedAssets.Contains(Path.GetFileName(staleAsset)))
+            {
+                File.Delete(staleAsset);
+            }
+        }
+
         await WriteAtomicallyAsync(
-            Path.Combine(notesRoot, IndexFileName),
+            indexPath,
             RenderIndex(items, timeProvider.GetUtcNow()),
             cancellationToken);
 
@@ -99,8 +148,9 @@ public sealed class ObsidianVaultService(
             }
 
             var item = await repository.GetAsync(id, cancellationToken);
-            var notes = ExtractNotes(await File.ReadAllTextAsync(notePath, cancellationToken));
-            if (item is null || notes is null)
+            var text = await File.ReadAllTextAsync(notePath, cancellationToken);
+            var notes = ExtractNotes(text);
+            if (item is null || item.IsDeleted || notes is null || !IsManagedNote(text, id))
             {
                 ignored++;
                 continue;
@@ -226,6 +276,177 @@ public sealed class ObsidianVaultService(
         return end < 0 ? null : text[start..end].Trim();
     }
 
+    private static bool HasFrontMatterValue(string text, string key, string value)
+    {
+        using var reader = new StringReader(text);
+        if (reader.ReadLine() != "---")
+        {
+            return false;
+        }
+        var matches = 0;
+        var expectedValue = false;
+        while (reader.ReadLine() is { } line)
+        {
+            if (line == "---")
+            {
+                return matches == 1 && expectedValue;
+            }
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith($"{key}:", StringComparison.Ordinal))
+            {
+                matches++;
+                expectedValue = string.Equals(trimmed, $"{key}: {value}", StringComparison.Ordinal);
+            }
+        }
+        return false;
+    }
+
+    private static bool IsManagedNote(string text, Guid id)
+    {
+        if (!HasFrontMatterValue(text, "unishare_id", id.ToString("D")))
+        {
+            return false;
+        }
+        var previousEnd = 0;
+        foreach (var marker in new[] { ManagedStart, ManagedEnd, NotesStart, NotesEnd })
+        {
+            var position = text.IndexOf(marker, StringComparison.Ordinal);
+            if (position < previousEnd || position != text.LastIndexOf(marker, StringComparison.Ordinal))
+            {
+                return false;
+            }
+            previousEnd = position + marker.Length;
+        }
+        return true;
+    }
+
+    private static string ReplaceManagedBlock(string existing, string generated)
+    {
+        var start = existing.IndexOf(ManagedStart, StringComparison.Ordinal);
+        var end = existing.IndexOf(ManagedEnd, StringComparison.Ordinal) + ManagedEnd.Length;
+        var generatedStart = generated.IndexOf(ManagedStart, StringComparison.Ordinal);
+        var generatedEnd = generated.IndexOf(ManagedEnd, StringComparison.Ordinal) + ManagedEnd.Length;
+        return string.Concat(existing.AsSpan(0, start), generated.AsSpan(generatedStart, generatedEnd - generatedStart), existing.AsSpan(end));
+    }
+
+    private static bool HasPersonalContent(string text, Guid id)
+    {
+        var start = text.IndexOf(ManagedStart, StringComparison.Ordinal);
+        var end = text.IndexOf(ManagedEnd, StringComparison.Ordinal) + ManagedEnd.Length;
+        var notesStart = text.IndexOf(NotesStart, StringComparison.Ordinal);
+        var notesEnd = text.IndexOf(NotesEnd, StringComparison.Ordinal) + NotesEnd.Length;
+        var canonicalHeader = $"---\nunishare_id: {id:D}\n---";
+        return !string.IsNullOrWhiteSpace(ExtractNotes(text)) ||
+            !string.Equals(text[..start].ReplaceLineEndings("\n").Trim(), canonicalHeader, StringComparison.Ordinal) ||
+            !string.Equals(text[end..notesStart].Trim(), "## Notas editables", StringComparison.Ordinal) ||
+            !string.IsNullOrWhiteSpace(text[notesEnd..]);
+    }
+
+    private static async Task<int> RemoveStaleManagedNotesAsync(
+        string notesRoot,
+        string assetsRoot,
+        HashSet<string> expectedNotes,
+        ISet<string> referencedAssets,
+        CancellationToken cancellationToken)
+    {
+        var preserved = 0;
+        foreach (var notePath in Directory.EnumerateFiles(notesRoot, "*.md", SearchOption.TopDirectoryOnly))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (expectedNotes.Contains(notePath) ||
+                string.Equals(Path.GetFileName(notePath), IndexFileName, StringComparison.OrdinalIgnoreCase) ||
+                !Guid.TryParse(Path.GetFileNameWithoutExtension(notePath), out var id))
+            {
+                continue;
+            }
+
+            var text = await File.ReadAllTextAsync(notePath, cancellationToken);
+            if (!IsManagedNote(text, id))
+            {
+                continue;
+            }
+
+            CollectManagedAssetPaths(text, assetsRoot, referencedAssets);
+            if (HasPersonalContent(text, id))
+            {
+                preserved++;
+                continue;
+            }
+            File.Delete(notePath);
+        }
+        return preserved;
+    }
+
+    private static void CollectManagedAssetPaths(
+        string text,
+        string assetsRoot,
+        ISet<string> destination)
+    {
+        const string prefix = "[[assets/";
+        var offset = 0;
+        while ((offset = text.IndexOf(prefix, offset, StringComparison.Ordinal)) >= 0)
+        {
+            var start = offset + prefix.Length;
+            var alias = text.IndexOf('|', start);
+            var closing = text.IndexOf("]]", start, StringComparison.Ordinal);
+            var end = alias >= start && (closing < 0 || alias < closing) ? alias : closing;
+            if (end < start)
+            {
+                break;
+            }
+
+            var fileName = text[start..end];
+            if (string.Equals(Path.GetFileName(fileName), fileName, StringComparison.Ordinal) &&
+                Guid.TryParse(Path.GetFileNameWithoutExtension(fileName), out _))
+            {
+                destination.Add(Path.Combine(assetsRoot, fileName));
+            }
+            offset = end;
+        }
+    }
+
+    private static async Task<HashSet<string>> FindReferencedAssetNamesAsync(
+        string vaultRoot,
+        IEnumerable<string> candidateNames,
+        CancellationToken cancellationToken)
+    {
+        var remaining = candidateNames
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var referenced = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (remaining.Count == 0)
+        {
+            return referenced;
+        }
+
+        var enumeration = new EnumerationOptions
+        {
+            RecurseSubdirectories = true,
+            IgnoreInaccessible = true,
+            AttributesToSkip = FileAttributes.ReparsePoint,
+        };
+        foreach (var notePath in Directory.EnumerateFiles(vaultRoot, "*.md", enumeration))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var text = await File.ReadAllTextAsync(notePath, cancellationToken);
+            foreach (var fileName in remaining.ToArray())
+            {
+                if (text.Contains(fileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    referenced.Add(fileName);
+                    remaining.Remove(fileName);
+                }
+            }
+
+            if (remaining.Count == 0)
+            {
+                break;
+            }
+        }
+
+        return referenced;
+    }
+
     private static string ValidateVaultRoot(string vaultRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(vaultRoot);
@@ -271,7 +492,7 @@ public sealed class ObsidianVaultService(
                 await output.FlushAsync(cancellationToken);
                 output.Flush(flushToDisk: true);
             }
-            File.Move(temporary, destination, overwrite: false);
+            File.Move(temporary, destination, overwrite: true);
         }
         finally
         {
@@ -280,6 +501,25 @@ public sealed class ObsidianVaultService(
                 File.Delete(temporary);
             }
         }
+    }
+
+    private static async Task<bool> MatchesAssetAsync(
+        string path,
+        Domain.AssetManifest asset,
+        CancellationToken cancellationToken)
+    {
+        var file = new FileInfo(path);
+        if (!file.Exists || file.Length != asset.ByteLength)
+        {
+            return false;
+        }
+
+        await using var stream = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        var hash = Convert.ToHexString(
+            await SHA256.HashDataAsync(stream, cancellationToken)).ToLowerInvariant();
+        return string.Equals(hash, asset.Sha256, StringComparison.Ordinal);
     }
 
     private static async Task WriteAtomicallyAsync(

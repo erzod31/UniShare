@@ -58,6 +58,13 @@ jobs:
         shell: pwsh
         run: ./packaging/chromium/test-extension.ps1
 
+      - name: Validate local translation assets and policy
+        run: node --test tests/translation/*.test.cjs
+
+      - name: Validate sanitized publication workflow
+        shell: pwsh
+        run: ./packaging/public/test-publication.ps1
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -96,7 +103,7 @@ jobs:
       - name: Test, lint and assemble release
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon testDebugUnitTest testReleaseUnitTest lintRelease assembleRelease
+          ./gradlew --no-daemon test lintRelease assembleRelease assembleDebugAndroidTest
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v7

@@ -60,8 +60,18 @@ class PortableBackupExporter(private val context: Context) {
         output: OutputStream,
         includedBlobHashes: Set<String>?,
         availableBlobHashes: Set<String>?,
-        includedItemIds: Set<String>?,
+        requestedItemIds: Set<String>?,
     ): AndroidBackupSummary {
+        // A missing blob needs its owning aggregate even when no metadata operation is new.
+        val includedItemIds = requestedItemIds?.toMutableSet()?.apply {
+            if (!includedBlobHashes.isNullOrEmpty()) {
+                database.rawQuery("SELECT item_id,sha256 FROM assets", null).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        if (cursor.getString(1) in includedBlobHashes) add(cursor.getString(0))
+                    }
+                }
+            }
+        }
         val checksums = TreeMap<String, String>()
         var itemCount = 0
         var assetCount = 0

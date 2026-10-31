@@ -19,6 +19,8 @@ public static partial class UiLanguage
     private static readonly Dictionary<string, string> English =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
+            ["Actualizar UniShare…"] = "Update UniShare…",
+            ["No se pudo abrir el actualizador de UniShare."] = "Could not open the UniShare updater.",
             ["Abrir"] = "Open",
             ["Abrir UniShare"] = "Open UniShare",
             ["Abrir contenido"] = "Open content",
@@ -35,6 +37,22 @@ public static partial class UiLanguage
             ["Archivo…"] = "File…",
             ["Archivos"] = "Files",
             ["Autor"] = "Author",
+            ["Traducir descripciones automáticamente"] = "Translate descriptions automatically",
+            ["Traducción local al idioma de Ajustes. Descarga idiomas al primer uso; el texto no sale del dispositivo."] =
+                "Local translation into the Settings language. Downloads languages on first use; text stays on your device.",
+            ["Traduciendo en el dispositivo… La primera vez se descargan los idiomas."] =
+                "Translating on your device… Languages are downloaded on first use.",
+            ["Traducción automática local"] = "Automatic local translation",
+            ["Descripción original"] = "Original description",
+            ["Editas la descripción original. La traducción se actualiza al guardar."] =
+                "You are editing the original description. The translation updates when you save.",
+            ["Ver original"] = "Show original",
+            ["Ver traducción"] = "Show translation",
+            ["Reintentar traducción"] = "Retry translation",
+            ["Idioma no identificado o no compatible. Se muestra el original."] =
+                "Language not identified or not supported. Showing the original.",
+            ["Traducción no disponible. Se muestra el original. Comprueba la conexión para descargar los idiomas."] =
+                "Translation unavailable. Showing the original. Check your connection to download languages.",
             ["Biblioteca"] = "Library",
             ["Biblioteca personal"] = "Personal library",
             ["Buscar"] = "Search",
@@ -221,6 +239,8 @@ public static partial class UiLanguage
             ["Elige dónde crear la biblioteca restaurada"] = "Choose where to create the restored library",
             ["Elige la carpeta raíz de tu bóveda de Obsidian"] = "Choose the root folder of your Obsidian vault",
             ["Elige la bóveda de Obsidian exportada por UniShare"] = "Choose the Obsidian vault exported by UniShare",
+            ["El índice de destino de Obsidian no pertenece a UniShare. Conserva el archivo o elige otra bóveda."] = "The destination Obsidian index does not belong to UniShare. Keep the file or choose another vault.",
+            ["La nota de destino de Obsidian no tiene marcadores válidos de UniShare. Conserva el archivo o elige otra bóveda."] = "The destination Obsidian note does not have valid UniShare markers. Keep the file or choose another vault.",
             ["1. Conecta ambos dispositivos"] = "1. Connect both devices",
             ["2. Activa el acceso privado de UniShare"] = "2. Enable private UniShare access",
             ["3. Escanea una sola vez"] = "3. Scan once",

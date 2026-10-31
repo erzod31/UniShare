@@ -106,7 +106,55 @@ public sealed class SqliteLibraryRepositoryTests
         Assert.Equal("ok", await integrity.ExecuteScalarAsync(TestContext.Current.CancellationToken));
         await using var version = connection.CreateCommand();
         version.CommandText = "SELECT version FROM schema_info;";
-        Assert.Equal(4L, await version.ExecuteScalarAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(5L, await version.ExecuteScalarAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task VersionFourMigratesWithoutLosingItemsAndTracksLogicalRevisions()
+    {
+        using var temporary = new TemporaryDirectory();
+        var databasePath = System.IO.Path.Combine(temporary.Path, "library.db");
+        var repository = new SqliteLibraryRepository(databasePath);
+        await repository.InitializeAsync(TestContext.Current.CancellationToken);
+        var item = LibraryItem.Create(ItemKind.Link, "Conservado", "https://example.com/kept", Now);
+        await repository.CreateAsync(item, null, TestContext.Current.CancellationToken);
+
+        SqliteConnection.ClearAllPools();
+        await using (var connection = new SqliteConnection($"Data Source={databasePath}"))
+        {
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
+            await using var downgrade = connection.CreateCommand();
+            downgrade.CommandText = """
+                DROP TRIGGER trg_items_content_revision_insert;
+                DROP TRIGGER trg_items_content_revision_update;
+                DROP TRIGGER trg_items_content_revision_delete;
+                DROP TRIGGER trg_assets_content_revision_insert;
+                DROP TRIGGER trg_assets_content_revision_update;
+                DROP TRIGGER trg_assets_content_revision_delete;
+                DROP TRIGGER trg_item_tags_content_revision_insert;
+                DROP TRIGGER trg_item_tags_content_revision_update;
+                DROP TRIGGER trg_item_tags_content_revision_delete;
+                DROP TRIGGER trg_item_collections_content_revision_insert;
+                DROP TRIGGER trg_item_collections_content_revision_update;
+                DROP TRIGGER trg_item_collections_content_revision_delete;
+                DELETE FROM settings WHERE key = 'content_revision';
+                UPDATE schema_info SET version = 4;
+                """;
+            await downgrade.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        var migrated = new SqliteLibraryRepository(databasePath);
+        await migrated.InitializeAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(item, await migrated.GetAsync(item.Id, TestContext.Current.CancellationToken));
+
+        await using var verification = new SqliteConnection($"Data Source={databasePath}");
+        await verification.OpenAsync(TestContext.Current.CancellationToken);
+        await using var query = verification.CreateCommand();
+        query.CommandText = "SELECT value FROM settings WHERE key='content_revision';";
+        Assert.Equal("0", await query.ExecuteScalarAsync(TestContext.Current.CancellationToken));
+
+        await migrated.SetDeletedAsync(item.Id, true, Now.AddMinutes(1), TestContext.Current.CancellationToken);
+        Assert.Equal("1", await query.ExecuteScalarAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]

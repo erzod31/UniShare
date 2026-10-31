@@ -2,6 +2,9 @@ package org.unishare.app
 
 import android.content.Context
 import androidx.core.content.edit
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import java.util.Locale
 
 internal enum class UiLanguageChoice {
@@ -30,9 +33,25 @@ internal object UiLanguageSettings {
 }
 
 internal object UiStrings {
-    var current: UiLanguageChoice = UiLanguageChoice.SPANISH
+    var current: UiLanguageChoice by mutableStateOf(UiLanguageChoice.SPANISH)
 
     private val english = mapOf(
+        "Traducir descripciones automáticamente" to "Translate descriptions automatically",
+        "Traducción local al idioma de Ajustes. Descarga idiomas al primer uso; el texto no sale del dispositivo." to
+            "Local translation into the Settings language. Downloads languages on first use; text stays on your device.",
+        "Traduciendo en el dispositivo… La primera vez se descargan los idiomas." to
+            "Translating on your device… Languages are downloaded on first use.",
+        "Traducción automática local" to "Automatic local translation",
+        "Descripción original" to "Original description",
+        "Editas la descripción original. La traducción se actualiza al guardar." to
+            "You are editing the original description. The translation updates when you save.",
+        "Ver original" to "Show original",
+        "Ver traducción" to "Show translation",
+        "Reintentar traducción" to "Retry translation",
+        "Idioma no identificado o no compatible. Se muestra el original." to
+            "Language not identified or not supported. Showing the original.",
+        "Traducción no disponible. Se muestra el original. Comprueba la conexión para descargar los idiomas." to
+            "Translation unavailable. Showing the original. Check your connection to download languages.",
         "Actividad" to "Activity", "Ajustes" to "Settings", "Abrir contenido" to "Open content",
         "Abrir Tailscale" to "Open Tailscale", "Actualizar títulos y resúmenes" to "Refresh titles and summaries",
         "Analizando contenido…" to "Analyzing content…", "Aún no hay carpetas" to "No folders yet",
@@ -57,11 +76,15 @@ internal object UiStrings {
         "Guardar" to "Save", "Guardar copia offline" to "Save offline copy", "Guardar en UniShare" to "Save to UniShare",
         "Guardar un elemento" to "Save an item", "Guardar y conectar" to "Save and connect", "Guardando…" to "Saving…",
         "Incorporar copia de seguridad" to "Merge backup", "Marcar como favorito" to "Mark as favorite",
+        "UniShare verificará la copia y fusionará sus elementos sin borrar los datos actuales. Los cambios simultáneos quedarán como conflictos para que los revises." to
+            "UniShare will verify the backup and merge its items without deleting your current data. Concurrent changes will remain as conflicts for you to review.",
         "Más opciones" to "More options", "Modificar resumen" to "Edit summary",
         "No hay elementos para mostrar" to "No items to display", "Organiza sin mover archivos físicos" to "Organize without moving physical files",
         "Sin resumen disponible." to "No summary available.", "Mostrar papelera" to "Show trash",
         "Los cambios se envían al guardarlos." to "Changes are sent when you save them.",
         "Conecta Windows para sincronizar tu biblioteca." to "Connect Windows to sync your library.",
+        "Conecta primero este teléfono para recuperar tu biblioteca." to
+            "Connect this phone first to retrieve your library.",
         "Reintentar" to "Retry", "Restaurar" to "Restore", "Restaurar copia sin borrar datos" to "Restore backup without deleting data",
         "Restaurar copia sin borrar datos…" to "Restore backup without deleting data…", "Resumen o notas" to "Summary or notes",
         "Revisar" to "Review", "Seleccionar" to "Select", "Sincronización automática" to "Automatic synchronization",
@@ -104,6 +127,8 @@ internal object UiStrings {
         "Descargando la copia offline…" to "Downloading the offline copy…",
         "Copia offline guardada en el teléfono." to "Offline copy saved on the phone.",
         "No se pudo guardar la copia offline." to "The offline copy could not be saved.",
+        "La descarga terminó con un tamaño distinto al anunciado" to
+            "The download ended with a different size than announced",
         "No se pudo exportar el respaldo." to "The backup could not be exported.",
         "No se pudo restaurar la copia." to "The backup could not be restored.",
         "No se pudo resolver el conflicto." to "The conflict could not be resolved.",
@@ -122,6 +147,15 @@ internal object UiStrings {
         "Configuración guardada. Conectando con el ordenador…" to
             "Settings saved. Connecting to the computer…",
         "Configuración de sincronización no válida." to "Invalid synchronization settings.",
+        "Permiso de red local concedido." to "Local network permission granted.",
+        "UniShare necesita permiso de red local para sincronizar directamente." to
+            "UniShare needs local network permission to synchronize directly.",
+        "Sin permiso de red local, Android no puede sincronizar directamente." to
+            "Without local network permission, Android cannot synchronize directly.",
+        "Sincronización pendiente: UniShare necesita permiso de red local para sincronizar directamente." to
+            "Synchronization pending: UniShare needs local network permission to synchronize directly.",
+        "Sincronización pendiente: Sin permiso de red local, Android no puede sincronizar directamente." to
+            "Synchronization pending: Without local network permission, Android cannot synchronize directly.",
         "Abre Tailscale manualmente y comprueba que la conexión y su DNS estén activados." to
             "Open Tailscale manually and check that the connection and its DNS are enabled.",
         "Usa un enlace http o https válido para asociarlo al archivo." to
@@ -178,5 +212,13 @@ internal object UiStrings {
                     if (match.groupValues[3].isNotEmpty()) " and ${match.groupValues[3]} conflicts." else "."
             }
             .replace(Regex("^Sincronización pendiente: (.+)$"), "Synchronization pending: $1")
+            .replace(
+                "pendiente: UniShare necesita permiso de red local para sincronizar directamente.",
+                "pending: UniShare needs local network permission to synchronize directly.",
+            )
+            .replace(
+                "pendiente: Sin permiso de red local, Android no puede sincronizar directamente.",
+                "pending: Without local network permission, Android cannot synchronize directly.",
+            )
     }
 }

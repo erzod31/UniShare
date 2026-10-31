@@ -14,7 +14,7 @@ plataforma, impacto, pasos mínimos de reproducción y, si es posible, una prueb
 Si el repositorio aún no tiene habilitados los avisos privados, abre una incidencia pública que indique
 únicamente que necesitas un canal privado, sin describir la vulnerabilidad.
 
-## Estado de los paquetes 0.6.16
+## Estado de los paquetes 0.6.23
 
 - El instalador Windows no tiene todavía firma Authenticode.
 - El APK lateral usa una clave Android de desarrollo; no es una publicación de Google Play.

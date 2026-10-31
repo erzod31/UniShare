@@ -9,7 +9,7 @@ namespace UniShare.Infrastructure;
 
 public sealed class SqliteLibraryRepository(string databasePath) : IItemRepository, IDownloadJobRepository
 {
-    private const int SchemaVersion = 4;
+    private const int SchemaVersion = 5;
     private readonly string _databasePath = Path.GetFullPath(databasePath);
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -941,6 +941,73 @@ public sealed class SqliteLibraryRepository(string databasePath) : IItemReposito
                 CREATE INDEX IF NOT EXISTS ix_conflicts_unresolved
                     ON conflicts(resolved_at, entity_id);
                 UPDATE schema_info SET version = 4;
+                """;
+            await command.ExecuteNonQueryAsync(cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            version = 4;
+        }
+
+        if (version < 5)
+        {
+            await using var transaction = connection.BeginTransaction();
+            await using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                INSERT OR IGNORE INTO settings(key, value) VALUES ('content_revision', '0');
+
+                CREATE TRIGGER IF NOT EXISTS trg_items_content_revision_insert
+                AFTER INSERT ON items BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS trg_items_content_revision_update
+                AFTER UPDATE ON items BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS trg_items_content_revision_delete
+                AFTER DELETE ON items BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS trg_assets_content_revision_insert
+                AFTER INSERT ON assets BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS trg_assets_content_revision_update
+                AFTER UPDATE ON assets BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS trg_assets_content_revision_delete
+                AFTER DELETE ON assets BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS trg_item_tags_content_revision_insert
+                AFTER INSERT ON item_tags BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS trg_item_tags_content_revision_update
+                AFTER UPDATE ON item_tags BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS trg_item_tags_content_revision_delete
+                AFTER DELETE ON item_tags BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS trg_item_collections_content_revision_insert
+                AFTER INSERT ON item_collections BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS trg_item_collections_content_revision_update
+                AFTER UPDATE ON item_collections BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+                CREATE TRIGGER IF NOT EXISTS trg_item_collections_content_revision_delete
+                AFTER DELETE ON item_collections BEGIN
+                    UPDATE settings SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision';
+                END;
+
+                UPDATE schema_info SET version = 5;
                 """;
             await command.ExecuteNonQueryAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);

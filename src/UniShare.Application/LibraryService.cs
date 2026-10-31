@@ -97,6 +97,9 @@ public sealed class LibraryService(IItemRepository repository, IBlobStore blobSt
         CancellationToken cancellationToken = default) =>
         repository.GetAllAsync(includeDeleted, cancellationToken);
 
+    public Task<LibraryItem?> GetAsync(Guid id, CancellationToken cancellationToken = default) =>
+        repository.GetAsync(id, cancellationToken);
+
     public Task<IReadOnlyList<LibraryItem>> SearchAdvancedAsync(
         ItemSearchOptions options,
         CancellationToken cancellationToken = default) =>

@@ -17,8 +17,17 @@ Estado inicial auditado: 2026-09-24. Este documento traduce la especificación a
 | F-09 | Emparejar, sincronizar y revocar dispositivos sin pérdida silenciosa. | Operaciones idempotentes; tags convergen; valores escalares concurrentes quedan como conflicto; blobs se verifican. | P1 |
 | F-10 | Exportar y restaurar copias. | Backup versionado y verificable restaura en perfil vacío IDs, relaciones, blobs e índice; no hereda credenciales del dispositivo. | P0 |
 | F-11 | Interfaz usable y accesible en español. | Tema claro/oscuro/sistema, teclado, foco visible, lector de pantalla, selección múltiple y errores accionables. | P0 |
+| F-12 | Obtener título, autor y descripción del contenido original. | El post exacto aporta su pie literal; las URLs/IDs impiden usar recomendaciones. TikTok prioriza su título específico y, si no existe, usa un encabezado de hasta 80 caracteres sin recortar la descripción. Artículos con extracción semántica. Notas y títulos manuales intactos; enlace conservado sin acceso. Contratos Windows/Android/Chromium. | P0 |
+| F-13 | Traducir automáticamente las descripciones dentro de la app al idioma elegido en Ajustes. | Windows y Android muestran la traducción sin abrir un navegador ni sobrescribir el original. La preferencia permite desactivar la traducción y consultar el original. El destino sigue el idioma de la interfaz; editar invalida la vista anterior. Modelos locales descargados bajo demanda y verificados; tras descargarlos, traducción sin red. Ante idioma no admitido, red ausente o fallo se conserva el original con estado explícito. | P1 |
 
 ## Requisitos de dominio y datos
+
+F-14 (DG-0018, P1): actualizar el propio binario desde cada cliente distribuido. Windows y Android
+deben ofrecer consulta, versión nueva, descarga cancelable/verificada y confirmación al instalador
+nativo, conservando identidad/datos y rechazando downgrade o producto/firma incorrectos. La extensión
+debe respetar el actualizador nativo del navegador e informar si el ZIP carece de canal de tienda.
+Pruebas con lanzadores falsos; instalación/reinicio efectivos sólo en entorno independiente.
+Canal estable y transición inicial: [APP_UPDATES](APP_UPDATES.md).
 
 | ID | Requisito | Aceptación |
 |---|---|---|
@@ -64,7 +73,7 @@ del producto en Windows y Android.
 - `NO VERIFICADO` se usa cuando falta hardware, sistema, certificado o cuenta; debe incluir pasos exactos.
 - Ningún requisito se reduce para hacer pasar las pruebas. Las limitaciones se mantienen visibles.
 
-## Estado de sincronización 0.6.9
+## Estado de sincronización 0.6.17
 
 - F-09/D-05: **IMPLEMENTADO y VERIFICADO para transporte directo local**. Windows sirve una API
   autenticada en loopback; Android envía cambios, consulta revisiones y conserva reintentos con WorkManager.
@@ -81,5 +90,27 @@ del producto en Windows y Android.
   los agregados modificados después del primer intercambio y avanza los cursores tras confirmación e
   importación. Los reintentos conservan el cursor anterior; una restauración incoherente fuerza un snapshot
   completo. Continúan aplazadas la revocación/rotación desde UI y las pruebas generativas extensivas.
+- 0.6.17 sustituye la señal física DB/WAL por una revisión lógica transaccional, verifica SHA-256 antes
+  de negociar blobs y valida el ACK causal antes de importar. Android 17 solicita el permiso de red local.
 - Windows mantiene el nodo activo al cerrar la ventana mediante un agente de bandeja por usuario. Una
   segunda apertura recupera la ventana existente y el inicio con Windows es optativo desde el icono.
+
+## Cierre de límites verificables 0.6.18
+
+- La reparación de blobs preserva el archivo anterior y promociona sólo una copia con SHA-256 correcto.
+  Los exportadores incluyen su agregado incluso si el registro incremental no tiene nuevas operaciones.
+- Android tiene pruebas instrumentadas aisladas de persistencia, migraciones, importación SAF, compartir,
+  backup, conflictos, cortes HTTP y permisos Android 17, además del recorrido con texto al 200 %.
+- La firma de producción está preparada en ambos empaquetadores. La identidad definitiva, certificados,
+  custodia de claves y cuentas de tienda siguen siendo externos; no se sustituye la clave lateral actual.
+- Cifrado opcional de backups, rotación/revocación y MSIX siguen en los hitos expresamente aplazados.
+
+## Continuación funcional 0.6.19
+
+- F-08/N-02: conservar texto externo y notas retiradas con contenido personal; rechazar destinos
+  Obsidian no reconocidos y omitir identidades/marcadores ambiguos durante importación. La capacidad
+  Obsidian sigue siendo Windows; los archivos Markdown se pueden transportar, no se añade un bridge móvil.
+- F-06/N-02: validar el tamaño final anunciado en Android sin romper gzip transparente ni respuestas
+  de longitud desconocida. El contenido incompleto nunca se convierte en un asset disponible.
+- N-08: generar el instalador desde el ZIP fuente oficial sin `.git`, conservando una revisión de
+  procedencia y distinguiendo explícitamente `.archive` de un checkout verificado.

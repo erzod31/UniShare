@@ -1,0 +1,37 @@
+{
+  "engineVersion": "4.0",
+  "modelVersion": "3.0",
+  "revision": "5ce8ed1e2fceea5c633c63dae85538d3241a733f",
+  "engineSourceRevision": "1de4a085d3a7afb625c51a60aabb5ad298e4059f",
+  "glue": "https://raw.githubusercontent.com/mozilla-firefox/firefox/5ce8ed1e2fceea5c633c63dae85538d3241a733f/toolkit/components/translations/bergamot-translator/bergamot-translator.js",
+  "engine": {
+    "url": "https://firefox-settings-attachments.cdn.mozilla.net/main-workspace/translations-wasm-v2/a76f9efe-b185-4a7f-9c3b-5f5d216d12e6.zst",
+    "sha256": "327fcfc7b7e9d95f6fa0844ebf899cfc05469872ef02d3aef5783182839a6255",
+    "decompressedSha256": "f38ef807636a7c994afedaab7ff8ffe0d590d21897f05139f747b80fd7bbe926",
+    "size": 1211955,
+    "decompressedSize": 4960506
+  },
+  "packages": {
+    "franc-min": "6.2.0",
+    "fzstd": "0.1.1",
+    "esbuild": "0.28.2"
+  },
+  "files": {
+    "bergamot-translator.js": {
+      "size": 99827,
+      "sha256": "972fa0450146fe06f4006a2ba56e8c4834403e27873cfe47fb3ba85aa7b9b082"
+    },
+    "bergamot-translator.wasm": {
+      "size": 4960506,
+      "sha256": "f38ef807636a7c994afedaab7ff8ffe0d590d21897f05139f747b80fd7bbe926"
+    },
+    "language-detection.js": {
+      "size": 176075,
+      "sha256": "2904d72757c2d609e2e3a15d19a6af0a285c3b028d53c5c0a131af20848ef7e7"
+    },
+    "fzstd.js": {
+      "size": 8394,
+      "sha256": "fbea1c25c4413b620ca3f59e6037d9f6c675c5c7f690e4d660143188f686461d"
+    }
+  }
+}

@@ -8,6 +8,14 @@
 
   <ItemGroup>
     <PackageReference Include="QRCoder" />
+    <PackageReference Include="Microsoft.Web.WebView2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\shared\translation\**\*" Link="translation\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\..\shared\updates\channel.json" Link="updates\channel.json"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,9 +30,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
-    <Version>0.6.16</Version>
-    <AssemblyVersion>0.6.16.0</AssemblyVersion>
-    <FileVersion>0.6.16.0</FileVersion>
+    <Version>0.6.24</Version>
+    <AssemblyVersion>0.6.24.0</AssemblyVersion>
+    <FileVersion>0.6.24.0</FileVersion>
   </PropertyGroup>
 
 </Project>

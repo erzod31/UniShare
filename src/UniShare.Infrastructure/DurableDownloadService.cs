@@ -64,20 +64,64 @@ public sealed class DurableDownloadService : IDownloadService, IDisposable
         Uri sourceUri,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(30));
+        var page = await ReadMetadataPageAsync(sourceUri, null, deadline.Token);
+        if (page.Metadata?.OriginDescriptionFound == true)
+        {
+            return page.Metadata;
+        }
+
+        var postUri = OriginContentRules.TikTokPostId(page.FinalUri) is not null ? page.FinalUri : sourceUri;
+        var alternative = TikTokMetadata.OEmbedUri(postUri);
+        if (alternative is null)
+        {
+            return page.Metadata;
+        }
+        try
+        {
+            var fallback = await ReadMetadataPageAsync(alternative, postUri, deadline.Token);
+            return fallback.Metadata?.OriginDescriptionFound == true
+                ? fallback.Metadata with { PromotionalDescription = page.Metadata?.PromotionalDescription, PageTitle = page.Metadata?.PageTitle }
+                : page.Metadata;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or IOException or SocketException ||
+            exception is OperationCanceledException && !cancellationToken.IsCancellationRequested)
+        {
+            // Optional public metadata must not discard already retrieved title/author on failure.
+            return page.Metadata;
+        }
+    }
+
+    private async Task<(WebCaptureMetadata? Metadata, Uri FinalUri)> ReadMetadataPageAsync(
+        Uri sourceUri, Uri? oEmbedFor, CancellationToken cancellationToken)
+    {
         var now = _timeProvider.GetUtcNow();
         var request = new DownloadJob(
             Guid.NewGuid(), Guid.Empty, sourceUri, DownloadJobState.Queued, 0, null, null, null,
             null, null, null, now, now);
-        using var response = await SendFollowingRedirectsAsync(request, 0, cancellationToken);
-        var mediaType = NormalizeMimeType(response.Content.Headers.ContentType);
-        if (mediaType is not ("text/html" or "application/xhtml+xml"))
+        using var response = await SendFollowingRedirectsAsync(request, 0, cancellationToken, ensureSuccess: false);
+        var finalUri = response.RequestMessage?.RequestUri ?? sourceUri;
+        if (!response.IsSuccessStatusCode)
         {
-            return null;
+            if (oEmbedFor is not null || OriginContentRules.TikTokPostId(finalUri) is not null ||
+                OriginContentRules.TikTokPostId(sourceUri) is not null)
+            {
+                return (null, finalUri);
+            }
+            response.EnsureSuccessStatusCode();
         }
-
-        if (response.Content.Headers.ContentLength is > MaximumMetadataBytes)
+        var mediaType = NormalizeMimeType(response.Content.Headers.ContentType);
+        if (oEmbedFor is not null ? mediaType != "application/json" :
+            mediaType is not ("text/html" or "application/xhtml+xml"))
         {
-            return null;
+            return (null, finalUri);
+        }
+        var announced = response.Content.Headers.ContentLength;
+        if (announced is > MaximumMetadataBytes)
+        {
+            return (null, finalUri);
         }
 
         await using var input = await response.Content.ReadAsStreamAsync(cancellationToken);
@@ -94,11 +138,15 @@ public sealed class DurableDownloadService : IDownloadService, IDisposable
         }
         if (output.Length > MaximumMetadataBytes)
         {
-            return null;
+            return (null, finalUri);
         }
-
-        var html = Encoding.UTF8.GetString(output.GetBuffer(), 0, checked((int)output.Length));
-        return SafeHtmlSnapshot.ExtractMetadata(html, response.RequestMessage?.RequestUri ?? sourceUri);
+        if (announced.HasValue && output.Length != announced.Value)
+        {
+            throw new InvalidDataException("La descarga terminó con un tamaño distinto al anunciado.");
+        }
+        var text = Encoding.UTF8.GetString(output.GetBuffer(), 0, checked((int)output.Length));
+        return (oEmbedFor is null ? SafeHtmlSnapshot.ExtractMetadata(text, finalUri) :
+            TikTokMetadata.ReadOEmbed(text, oEmbedFor), finalUri);
     }
 
     public async Task<DownloadJob> RunAsync(Guid jobId, CancellationToken cancellationToken = default)
@@ -324,7 +372,8 @@ public sealed class DurableDownloadService : IDownloadService, IDisposable
     private async Task<HttpResponseMessage> SendFollowingRedirectsAsync(
         DownloadJob job,
         long offset,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool ensureSuccess = true)
     {
         var uri = job.SourceUri;
         for (var redirect = 0; redirect <= MaximumRedirects; redirect++)
@@ -348,7 +397,10 @@ public sealed class DurableDownloadService : IDownloadService, IDisposable
                 request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             if (!IsRedirect(response.StatusCode))
             {
-                response.EnsureSuccessStatusCode();
+                if (ensureSuccess)
+                {
+                    response.EnsureSuccessStatusCode();
+                }
                 return response;
             }
 

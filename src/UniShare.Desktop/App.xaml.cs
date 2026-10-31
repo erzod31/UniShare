@@ -294,6 +294,12 @@ public partial class App : System.Windows.Application, IDisposable
         }
     }
 
+    internal Task ShutdownForUpdateAsync()
+    {
+        _exitRequested = true;
+        return ShutdownAsync();
+    }
+
     private async Task ShutdownAsync()
     {
         if (_shutdownStarted)

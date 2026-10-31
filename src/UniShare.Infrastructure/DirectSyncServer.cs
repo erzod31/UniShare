@@ -107,7 +107,7 @@ public sealed class DirectSyncServer : IAsyncDisposable
             await context.Response.WriteAsJsonAsync(new
             {
                 protocol_version = 2,
-                revision = ReadRevision(),
+                revision = syncState.Revision,
                 device_id = syncState.DeviceId,
                 cursor = syncState.Through,
                 service = "UniShare direct sync",
@@ -288,7 +288,7 @@ public sealed class DirectSyncServer : IAsyncDisposable
             context.Response.Headers["X-UniShare-Conflicts"] = imported.Conflicts.ToString(CultureInfo.InvariantCulture);
             context.Response.Headers["X-UniShare-Items"] = exported.ItemCount.ToString(CultureInfo.InvariantCulture);
             context.Response.Headers["X-UniShare-Blobs"] = exported.BlobCount.ToString(CultureInfo.InvariantCulture);
-            context.Response.Headers["X-UniShare-Revision"] = ReadRevision();
+            context.Response.Headers["X-UniShare-Revision"] = delta.Revision;
             context.Response.Headers["X-UniShare-Protocol"] = "2";
             context.Response.Headers["X-UniShare-Server-Device"] = delta.DeviceId.ToString("D");
             context.Response.Headers["X-UniShare-Full-Snapshot"] = sendDelta ? "0" : "1";
@@ -357,7 +357,14 @@ public sealed class DirectSyncServer : IAsyncDisposable
                 throw new InvalidDataException("El inventario contiene un SHA-256 inválido.");
             }
 
-            var missing = normalized.Where(hash => !LocalBlobExists(hash)).Order(StringComparer.Ordinal).ToArray();
+            var missing = new List<string>();
+            foreach (var hash in normalized.Order(StringComparer.Ordinal))
+            {
+                if (!await LocalBlobIsValidAsync(hash, context.RequestAborted))
+                {
+                    missing.Add(hash);
+                }
+            }
             context.Response.Headers.CacheControl = "no-store";
             await context.Response.WriteAsJsonAsync(new { missing }, JsonOptions, context.RequestAborted);
         }
@@ -390,7 +397,10 @@ public sealed class DirectSyncServer : IAsyncDisposable
             {
                 throw new InvalidDataException("La biblioteca contiene un SHA-256 de blob inválido.");
             }
-            result.Add(hash);
+            if (await LocalBlobIsValidAsync(hash, cancellationToken))
+            {
+                result.Add(hash);
+            }
         }
         return result;
     }
@@ -433,8 +443,27 @@ public sealed class DirectSyncServer : IAsyncDisposable
         return result;
     }
 
-    private bool LocalBlobExists(string hash) => File.Exists(Path.Combine(
-        _profileRoot, "blobs", hash[..2], hash.Substring(2, 2), hash));
+    private async Task<bool> LocalBlobIsValidAsync(string hash, CancellationToken cancellationToken)
+    {
+        var path = Path.Combine(_profileRoot, "blobs", hash[..2], hash.Substring(2, 2), hash);
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            await using var stream = new FileStream(
+                path, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+            var actual = await SHA256.HashDataAsync(stream, cancellationToken);
+            return CryptographicOperations.FixedTimeEquals(actual, Convert.FromHexString(hash));
+        }
+        catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+        {
+            return false;
+        }
+    }
 
     private static bool IsValidHash(string hash) =>
         hash.Length == 64 && hash.All(character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
@@ -491,15 +520,6 @@ public sealed class DirectSyncServer : IAsyncDisposable
         File.Move(temporary, path, overwrite);
     }
 
-    private string ReadRevision()
-    {
-        static string Part(string path) => File.Exists(path)
-            ? $"{new FileInfo(path).Length}:{File.GetLastWriteTimeUtc(path).Ticks}"
-            : "0:0";
-        var raw = $"{Part(_databasePath)}|{Part(_databasePath + "-wal")}";
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();
-    }
-
     private async Task<SyncCursorState> ReadSyncCursorStateAsync(
         long? afterExclusive,
         CancellationToken cancellationToken)
@@ -514,7 +534,8 @@ public sealed class DirectSyncServer : IAsyncDisposable
         identity.CommandText = """
             SELECT
                 (SELECT value FROM settings WHERE key='device_id'),
-                CAST((SELECT value FROM settings WHERE key='next_counter') AS INTEGER);
+                CAST((SELECT value FROM settings WHERE key='next_counter') AS INTEGER),
+                CAST((SELECT value FROM settings WHERE key='content_revision') AS INTEGER);
             """;
         await using var identityReader = await identity.ExecuteReaderAsync(cancellationToken);
         if (!await identityReader.ReadAsync(cancellationToken))
@@ -524,6 +545,10 @@ public sealed class DirectSyncServer : IAsyncDisposable
 
         var deviceId = Guid.Parse(identityReader.GetString(0));
         var through = identityReader.GetInt64(1);
+        var contentRevision = identityReader.GetInt64(2);
+        var revisionSeed = $"{deviceId:D}:{contentRevision.ToString(CultureInfo.InvariantCulture)}";
+        var revision = Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(revisionSeed))).ToLowerInvariant();
         var itemIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (afterExclusive.HasValue)
         {
@@ -545,7 +570,7 @@ public sealed class DirectSyncServer : IAsyncDisposable
             }
         }
 
-        return new SyncCursorState(deviceId, through, itemIds);
+        return new SyncCursorState(deviceId, through, revision, itemIds);
     }
 
     private static long? ParseCursor(string? value) =>
@@ -623,7 +648,11 @@ public sealed class DirectSyncServer : IAsyncDisposable
         _syncGate.Dispose();
     }
 
-    private sealed record SyncCursorState(Guid DeviceId, long Through, HashSet<string> ItemIds);
+    private sealed record SyncCursorState(
+        Guid DeviceId,
+        long Through,
+        string Revision,
+        HashSet<string> ItemIds);
 }
 
 internal sealed record BrowserCaptureRequest(

@@ -3,6 +3,135 @@
 Los cambios relevantes de UniShare se documentan aquí. El proyecto sigue versionado semántico mientras
 permanece en la serie `0.x`.
 
+## 0.6.24 — 2026-10-28 (candidato sin publicar)
+
+- Windows y Android permiten buscar y descargar una nueva versión de UniShare desde sus interfaces.
+  Canal real GitHub Releases, sin credenciales; verificación de origen, versión, tamaño, SHA-256,
+  identidad de producto y firmas aplicables antes de solicitar el instalador nativo con confirmación.
+- Cancelación, parciales no instalables, revalidación al aplicar y rechazo de downgrades. Windows
+  mantiene AppId y perfil, y prepara reapertura tras el asistente; Android conserva packageName y
+  certificado y respeta permiso/confirmación del sistema y su botón Abrir.
+- Extensión con consulta/aplicación nativa del navegador para paquetes de tienda. El ZIP de desarrollo
+  informa que necesita publicación en tienda; recargar archivos no se presenta como actualización.
+- 0.6.23 y anteriores necesitan una primera instalación manual para incorporar el actualizador.
+  Ningún candidato se publica ni se aplica a instalaciones reales durante DG-0018.
+
+## 0.6.23 — 2026-10-26
+
+- Las descripciones se traducen automáticamente dentro de la aplicación al idioma elegido en Ajustes
+  (español/inglés). Sustituye el botón que abría Google Translate en un navegador.
+- Motor Bergamot de Mozilla local y compartido por Windows/Android. Los modelos se descargan por
+  necesidad, con tamaño/SHA-256 fijados. Después la traducción funciona sin conexión, sin clave API,
+  cuenta ni servidor de traducción y sin enviar el texto fuera del dispositivo.
+- Caché derivada por texto, idioma y versión, opción para desactivar y botón para ver el original.
+  Las ediciones, backups, sincronización y Obsidian siguen usando el original; los títulos no cambian.
+- Descargas incompletas/dañadas y fallos no sustituyen datos; la biblioteca permanece utilizable.
+  Se retiran el lanzador de navegador y sus textos/código sin uso. Licencias y reproducción incluidas.
+
+## 0.6.22 — 2026-10-26
+
+- La alternativa de título TikTok deja de copiar hasta 500 caracteres de la descripción: usa un
+  encabezado de hasta 80 caracteres Unicode, con límite de palabra y elipsis. Prioriza un título
+  específico publicado cuando existe. La descripción original se conserva completa.
+- Las listas finales de hashtags/URLs permanecen en la descripción; un hashtag que identifica el tema
+  de un título breve se conserva. La migración v7 reconoce la alternativa automática antigua y la acorta.
+- Windows relee el elemento después de consultar la red para respetar las ediciones hechas mientras
+  llegaban sus metadatos; no enriquece un elemento que se haya retirado durante esa espera.
+
+## 0.6.21 — 2026-10-26
+
+- Los títulos específicos de TikTok y los titulares/nombres JSON-LD se usan como título del elemento.
+  La descripción permanece separada. Si TikTok sólo publica un pie, su primera línea sirve de título.
+- La reconsulta v6 sustituye etiquetas TikTok genéricas anteriores que coinciden con la página de
+  origen, conservando títulos personalizados y descripciones ya guardadas.
+- Windows y Android ofrecen **Traducir con Google Translate**: confirmación, navegador y destino según
+  el idioma de interfaz. El original permanece intacto; textos largos se copian completos para pegar.
+  Es una función en línea opcional, sin SDKs ni nuevas dependencias runtime.
+- El panel de detalles y el resumen del editor Windows se pueden desplazar para mantener las acciones
+  accesibles con descripciones largas.
+
+## 0.6.20 — 2026-10-26
+
+### Corregido
+
+- TikTok obtiene la descripción y el autor del post exacto desde datos de escritorio, la variante
+  móvil `webapp.reflow.video.detail` y formatos legacy, también después de resolver un enlace corto.
+- Los pies de publicaciones conservan texto breve, emojis, hashtags, saltos y enlaces; no se descartan
+  por coincidir con el título ni se confunden con prosa de artículos o descripciones de recomendaciones.
+- JSON-LD se interpreta como un árbol real en Android y se asocia a la URL del contenido en los tres
+  clientes. Los objetos de organización y las identidades distintas no aportan el resumen del elemento.
+- Una alternativa oEmbed pública y opcional sólo acepta el mismo post. Los errores y las respuestas
+  modernas sin título mantienen el enlace y la información obtenida, sin inventar una descripción.
+- La migración v4 vuelve a enriquecer enlaces anteriores, respetando las notas manuales. No cambia
+  el esquema de datos, el formato de backup ni el protocolo de sincronización.
+
+### Pruebas
+
+- Contratos sintéticos compartidos por Windows, Android JVM/nativo y la extensión; límites Unicode,
+  redirecciones, cancelación, respuestas incompletas y alternativa no disponible.
+- Comprobación del pie original de una publicación pública real, sin claves ni sesión TikTok.
+
+## 0.6.19 — 2026-10-16
+
+### Corregido
+
+- Obsidian actualiza únicamente el bloque gestionado, conservando literalmente las notas, apéndices y
+  propiedades personales. No sobrescribe notas o índices sin identidad válida y marcadores inequívocos.
+- Las notas de elementos retirados con contenido personal conservan sus adjuntos y permanecen fuera del
+  índice activo. La importación omite elementos eliminados y notas con identidad o límites ambiguos.
+- Android rechaza un cuerpo de descarga/metadatos cuya longitud no coincida con la anunciada y limpia
+  el parcial. Las respuestas sin longitud y la descompresión gzip transparente siguen funcionando.
+- El instalador Windows también puede compilarse desde el ZIP fuente oficial sin historial Git. La
+  versión identifica la revisión del archivo y usa el sufijo `.archive`, sin afirmar que detecta ediciones.
+
+## 0.6.18 — 2026-10-16
+
+### Corregido
+
+- Windows y Android reemplazan atómicamente un blob dañado sólo después de verificar la copia correcta;
+  conservan los bytes anteriores en `recovery/corrupt-blobs` para recuperación.
+- Los deltas incluyen los elementos propietarios de archivos solicitados aunque no exista una nueva
+  operación de metadatos. Esto completa la reparación de corrupción detectada en 0.6.17.
+- Android conserva borrador, carpeta, modalidad offline, URL del selector y filtros al recrear pantalla.
+  La hoja se abre desplegada, las opciones se adaptan al texto ampliado y las barras contrastan en ambos temas.
+- Se completa la traducción inglesa del estado vacío de una biblioteca aún no emparejada.
+
+### Pruebas y distribución
+
+- Aplicación QA aislada, pruebas instrumentadas reproducibles de SQLite, migraciones, SAF, compartir,
+  backup, conflictos, cortes de red, confirmación causal y permisos reales de Android 17.
+- Recorridos con texto al 200 % y prueba entre Android 17 y un nodo Windows real con perfiles sintéticos.
+- Firma de producción APK/AAB mediante credenciales externas; Authenticode para EXE, Setup y desinstalador
+  con certificado existente. Una configuración incompleta se rechaza sin degradar silenciosamente la firma.
+- Paquetes con textos originales de licencias e inventario runtime, sin incluir bibliotecas de pruebas
+  dentro de la aplicación de producción.
+
+## 0.6.17 — 2026-10-15
+
+### Corregido
+
+- La sincronización usa una revisión lógica transaccional del contenido en vez de inferir cambios por
+  tamaño y fecha de los ficheros SQLite/WAL.
+- Android valida identidad, cursores y acuse causal antes de incorporar una respuesta incremental.
+- Android y Windows calculan el SHA-256 antes de anunciar un blob como disponible, detectando corrupción
+  aunque el archivo conserve el mismo tamaño. La recuperación completa se corrige en 0.6.18.
+- Los respaldos Windows leen items, assets, organización e identidad desde una sola instantánea SQLite.
+- La exportación Obsidian repara adjuntos dañados y limpia únicamente notas/adjuntos gestionados que ya
+  no corresponden a elementos activos, sin tocar contenido personal ni adjuntos citados por sus notas.
+- Android 17 solicita el permiso de red local necesario para sincronizar y explica el bloqueo en español
+  e inglés si el usuario no lo concede.
+- El empaquetador Windows descarta instalaciones de `dotnet` que no puedan resolver la versión fijada,
+  en lugar de fallar por elegir primero un SDK local antiguo.
+- Los binarios creados desde un árbol Git con cambios sin confirmar identifican su revisión como
+  `.dirty`, evitando atribuir el ejecutable al commit base como si fuese reproducible byte a byte.
+
+### Calidad y herramientas
+
+- Esquema Windows v5 con migración conservadora y pruebas de revisión lógica/checkpoint WAL.
+- .NET SDK 10.0.402, SQLite 10.0.13, QRCoder 1.8.1, xUnit 4.0.2 y cobertura 18.12.0.
+- Android API 37, AGP 9.4.1, Gradle 9.8.1, Compose BOM 2026.09.00 y Core 1.19.1; CI usa las tareas
+  vigentes de AGP 9.
+
 ## 0.6.16 — 2026-10-06
 
 ### Corregido

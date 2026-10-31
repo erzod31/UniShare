@@ -106,24 +106,29 @@ internal static partial class SafeHtmlSnapshot
             }
         }
 
-        var title = FirstValue(values, "og:title", "twitter:title") ?? documentTitle;
+        var post = TikTokMetadata.Extract(html, sourceUri);
+        var structuredTitle = ExtractStructuredContent(html, sourceUri, ContentField.Title)?.Text;
+        var title = Limit(post?.Title ?? Limit(CleanText(structuredTitle ?? string.Empty), 500) ??
+            FirstValue(values, "og:title", "twitter:title") ?? documentTitle, 500);
         var siteName = FirstValue(values, "og:site_name", "application-name");
-        var author = FirstValue(values, "author", "article:author");
+        var author = post?.Author ?? FirstValue(values, "author", "article:author");
         var promotionalDescription = FirstValue(
             values, "og:description", "twitter:description", "description");
-        var contentSummary = ExtractContentSummary(html, title, sourceUri);
+        var contentSummary = post is null ? ExtractContentSummary(html, title, sourceUri) : post.Description;
 
         return new WebCaptureMetadata(
             title,
-            Limit(string.IsNullOrWhiteSpace(siteName) ? sourceUri.Host : siteName, 500),
+            Limit(post?.Source ?? (string.IsNullOrWhiteSpace(siteName) ? sourceUri.Host : siteName), 500),
             Limit(author, 500),
             contentSummary,
-            Limit(promotionalDescription, 4000));
+            Limit(promotionalDescription, 4000),
+            OriginDescriptionFound: post is not null || contentSummary is not null,
+            PageTitle: FirstValue(values, "og:title", "twitter:title") ?? documentTitle);
     }
 
     private static string? ExtractContentSummary(string html, string? title, Uri sourceUri)
     {
-        var structuredBody = ExtractStructuredArticleBody(html);
+        var structuredBody = ExtractStructuredContent(html, sourceUri, ContentField.ArticleBody)?.Text;
         var structuredSummary = BuildSummary(
             string.IsNullOrWhiteSpace(structuredBody) ? [] : [structuredBody], title);
         if (structuredSummary is not null)
@@ -143,12 +148,21 @@ internal static partial class SafeHtmlSnapshot
             }
         }
 
-        var structuredDescription = ExtractStructuredDescription(html);
+        var structuredDescription = ExtractStructuredContent(html, sourceUri, ContentField.Description);
+        if (structuredDescription is { IsCaption: true })
+        {
+            return OriginContentRules.NormalizeCaption(structuredDescription.Text);
+        }
         var descriptionSummary = BuildSummary(
-            string.IsNullOrWhiteSpace(structuredDescription) ? [] : [structuredDescription], title);
+            structuredDescription is null ? [] : [structuredDescription.Text], title);
         if (descriptionSummary is not null)
         {
             return descriptionSummary;
+        }
+
+        if (OriginContentRules.TikTokPostId(sourceUri) is not null)
+        {
+            return null;
         }
 
         var cleaned = ActiveContentRegex().Replace(html, string.Empty);
@@ -181,94 +195,103 @@ internal static partial class SafeHtmlSnapshot
             .FirstOrDefault();
     }
 
-    private static string? ExtractStructuredArticleBody(string html)
+    private enum ContentField { ArticleBody, Description, Title }
+
+    private static ContentDescription? ExtractStructuredContent(string html, Uri sourceUri, ContentField field)
     {
+        var candidates = new List<ContentDescription>();
         foreach (Match script in JsonLdScriptRegex().Matches(html))
         {
             try
             {
                 using var document = JsonDocument.Parse(script.Groups[1].Value);
-                var body = FindArticleBody(document.RootElement);
-                if (!string.IsNullOrWhiteSpace(body))
-                {
-                    return CleanText(body);
-                }
+                FindTypedContent(document.RootElement, sourceUri, field, candidates);
             }
             catch (JsonException)
             {
-                // El HTML de terceros puede incluir JSON-LD inválido; se continúa con el cuerpo visible.
+                // Third-party JSON-LD may be incomplete. It is never interpreted by a text regex.
             }
         }
-        return null;
-    }
-
-    private static string? ExtractStructuredDescription(string html)
-    {
-        foreach (Match script in JsonLdScriptRegex().Matches(html))
+        var ranked = candidates.OrderByDescending(value => value.HasIdentity).ToArray();
+        if (ranked.Length == 0)
         {
-            try
-            {
-                using var document = JsonDocument.Parse(script.Groups[1].Value);
-                var description = FindTypedDescription(document.RootElement);
-                if (!string.IsNullOrWhiteSpace(description))
-                {
-                    return CleanText(description);
-                }
-            }
-            catch (JsonException)
-            {
-                // El JSON-LD de terceros puede estar incompleto; se continúa con el HTML visible.
-            }
+            return null;
         }
-        return null;
+        var best = ranked.Where(value => value.HasIdentity == ranked[0].HasIdentity).ToArray();
+        return best.Select(value => value.Text).Distinct(StringComparer.Ordinal).Count() == 1 ? best[0] : null;
     }
 
-    private static string? FindTypedDescription(JsonElement element)
+    private static void FindTypedContent(
+        JsonElement element, Uri sourceUri, ContentField field, ICollection<ContentDescription> candidates)
     {
         if (element.ValueKind == JsonValueKind.Object)
         {
-            if (IsSupportedContentType(element) &&
-                element.TryGetProperty("description", out var description) &&
-                description.ValueKind == JsonValueKind.String)
+            var types = ReadContentTypes(element);
+            var isCaption = types.Any(CaptionContentTypes.Contains);
+            var isArticle = types.Any(ArticleContentTypes.Contains);
+            var identity = ReadIdentity(element);
+            if ((field == ContentField.ArticleBody ? isArticle && !isCaption : isCaption || isArticle) &&
+                OriginContentRules.MatchesContentUrl(identity, sourceUri))
             {
-                return description.GetString();
+                var keys = field == ContentField.Title ? new[] { "headline", "name" } :
+                    field == ContentField.ArticleBody ? ["articleBody"] :
+                    isCaption ? ["caption", "description", "text", "articleBody"] : ["description"];
+                foreach (var key in keys)
+                {
+                    if (element.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String &&
+                        !string.IsNullOrWhiteSpace(value.GetString()))
+                    {
+                        candidates.Add(new ContentDescription(value.GetString()!, field == ContentField.Description && isCaption, identity is not null));
+                        break;
+                    }
+                }
             }
             foreach (var property in element.EnumerateObject())
             {
-                var nested = FindTypedDescription(property.Value);
-                if (!string.IsNullOrWhiteSpace(nested))
-                {
-                    return nested;
-                }
+                FindTypedContent(property.Value, sourceUri, field, candidates);
             }
         }
         else if (element.ValueKind == JsonValueKind.Array)
         {
             foreach (var child in element.EnumerateArray())
             {
-                var nested = FindTypedDescription(child);
-                if (!string.IsNullOrWhiteSpace(nested))
-                {
-                    return nested;
-                }
+                FindTypedContent(child, sourceUri, field, candidates);
             }
         }
-        return null;
     }
 
-    private static bool IsSupportedContentType(JsonElement element)
+    private static IEnumerable<string> ReadContentTypes(JsonElement element)
     {
         if (!element.TryGetProperty("@type", out var type))
         {
-            return false;
+            return [];
         }
-        return type.ValueKind switch
+        return (type.ValueKind == JsonValueKind.Array ? type.EnumerateArray().ToArray() : [type])
+            .Where(value => value.ValueKind == JsonValueKind.String)
+            .Select(value => value.GetString()!
+                .Replace("https://schema.org/", string.Empty, StringComparison.Ordinal)
+                .Replace("http://schema.org/", string.Empty, StringComparison.Ordinal));
+    }
+
+    private static string? ReadIdentity(JsonElement element)
+    {
+        foreach (var key in new[] { "mainEntityOfPage", "url", "@id" })
         {
-            JsonValueKind.String => SupportedContentTypes.Contains(type.GetString() ?? string.Empty),
-            JsonValueKind.Array => type.EnumerateArray().Any(value =>
-                value.ValueKind == JsonValueKind.String && SupportedContentTypes.Contains(value.GetString() ?? string.Empty)),
-            _ => false,
-        };
+            if (!element.TryGetProperty(key, out var identity))
+            {
+                continue;
+            }
+            if (identity.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(identity.GetString()))
+            {
+                return identity.GetString();
+            }
+            if (identity.ValueKind == JsonValueKind.Object &&
+                identity.TryGetProperty("@id", out var id) && id.ValueKind == JsonValueKind.String)
+            {
+                return id.GetString();
+            }
+        }
+        return null;
     }
 
     private static string? ExtractYouTubeVideoDescription(string html)
@@ -300,39 +323,6 @@ internal static partial class SafeHtmlSnapshot
             uri.AbsolutePath.StartsWith("/live/", StringComparison.OrdinalIgnoreCase));
     }
 
-    private static string? FindArticleBody(JsonElement element)
-    {
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            foreach (var property in element.EnumerateObject())
-            {
-                if (property.NameEquals("articleBody") && property.Value.ValueKind == JsonValueKind.String)
-                {
-                    return property.Value.GetString();
-                }
-            }
-            foreach (var property in element.EnumerateObject())
-            {
-                var nested = FindArticleBody(property.Value);
-                if (!string.IsNullOrWhiteSpace(nested))
-                {
-                    return nested;
-                }
-            }
-        }
-        else if (element.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var child in element.EnumerateArray())
-            {
-                var nested = FindArticleBody(child);
-                if (!string.IsNullOrWhiteSpace(nested))
-                {
-                    return nested;
-                }
-            }
-        }
-        return null;
-    }
 
     private static List<string> ExtractParagraphs(string scope)
     {
@@ -486,9 +476,8 @@ internal static partial class SafeHtmlSnapshot
         return null;
     }
 
-    private static string? Limit(string? value, int maximumLength) => string.IsNullOrWhiteSpace(value)
-        ? null
-        : value.Length <= maximumLength ? value : value[..maximumLength];
+    private static string? Limit(string? value, int maximumLength) =>
+        OriginContentRules.LimitField(value, maximumLength);
 
     private static string CleanText(string value)
     {
@@ -634,7 +623,7 @@ internal static partial class SafeHtmlSnapshot
     [GeneratedRegex(@"<(?<region>nav|aside|footer|header|form|dialog|menu|svg|canvas)\b[^>]*>.*?</\k<region>\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex NonContentRegionRegex();
 
-    [GeneratedRegex("""<script\b[^>]*type\s*=\s*['"]application/ld\+json['"][^>]*>(.*?)</script\s*>""", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    [GeneratedRegex("""<script\b[^>]*type\s*=\s*(?:['"]application/ld\+json['"]|application/ld\+json(?=\s|>))[^>]*>(.*?)</script\s*>""", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex JsonLdScriptRegex();
 
     [GeneratedRegex(@"<article\b[^>]*>(.*?)</article\s*>", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
@@ -679,11 +668,18 @@ internal static partial class SafeHtmlSnapshot
     [GeneratedRegex("\\\"shortDescription\\\"\\s*:\\s*\\\"(?<value>(?:\\\\.|[^\\\"\\\\])*)\\\"", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex YouTubeShortDescriptionRegex();
 
-    private static readonly HashSet<string> SupportedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> ArticleContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "Article", "NewsArticle", "BlogPosting", "TechArticle", "Report", "ScholarlyArticle",
-        "VideoObject", "AudioObject", "PodcastEpisode",
     };
+
+    private static readonly HashSet<string> CaptionContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "VideoObject", "AudioObject", "PodcastEpisode", "ImageObject", "Photograph",
+        "SocialMediaPosting", "DiscussionForumPosting",
+    };
+
+    private sealed record ContentDescription(string Text, bool IsCaption, bool HasIdentity);
 
     private sealed record ValidatedRenderedImage(string DataUrl, string AlternativeText);
 }

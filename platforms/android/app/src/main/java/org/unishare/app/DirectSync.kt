@@ -2,10 +2,13 @@ package org.unishare.app
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.database.sqlite.SQLiteDatabase
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.Uri
+import android.os.Build
+import androidx.core.content.ContextCompat
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -19,12 +22,14 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import androidx.core.content.edit
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
 import java.net.URLDecoder
 import java.net.UnknownHostException
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -81,6 +86,49 @@ data class DirectSyncServerStatus(
 )
 
 data class DirectSyncCursors(val serverCursor: Long?, val acknowledgedLocalCounter: Long?)
+
+object LocalNetworkAccess {
+    private const val ANDROID_17_API = 37
+    const val PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
+
+    fun isPermissionRequired(sdkInt: Int, permissionGranted: Boolean): Boolean =
+        sdkInt >= ANDROID_17_API && !permissionGranted
+
+    fun isGranted(context: Context): Boolean {
+        val permissionGranted = ContextCompat.checkSelfPermission(
+            context,
+            PERMISSION,
+        ) == PackageManager.PERMISSION_GRANTED
+        return !isPermissionRequired(Build.VERSION.SDK_INT, permissionGranted)
+    }
+}
+
+object LocalBlobIntegrity {
+    fun matches(file: File, expectedHash: String, expectedLength: Long): Boolean {
+        if (!file.isFile || file.length() != expectedLength || !HASH_PATTERN.matches(expectedHash)) {
+            return false
+        }
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().buffered().use { input ->
+                val buffer = ByteArray(128 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            digest.digest().toHex() == expectedHash
+        } catch (_: FileNotFoundException) {
+            false
+        }
+    }
+
+    private fun ByteArray.toHex(): String =
+        joinToString("") { "%02x".format(it.toInt() and 0xff) }
+
+    private val HASH_PATTERN = Regex("^[0-9a-f]{64}$")
+}
 
 object DirectSyncPolicy {
     fun isUpToDate(
@@ -365,9 +413,6 @@ class DirectSyncClient(private val context: Context) {
                 } finally {
                     connection.disconnect()
                 }
-                val incoming = PortableBackupImporter(context).import(
-                    database, Uri.fromFile(response), trackAsLocalChanges = false,
-                )
                 if (supportsDelta) {
                     check(responseProtocol >= 2) { "El servidor no confirmó el protocolo incremental" }
                     check(DirectSyncCursorPolicy.responseIsCausallyValid(
@@ -379,6 +424,11 @@ class DirectSyncClient(private val context: Context) {
                         responseClientAck,
                         responseIsFullSnapshot,
                     )) { "El ordenador no confirmó causalmente la sincronización" }
+                }
+                val incoming = PortableBackupImporter(context).import(
+                    database, Uri.fromFile(response), trackAsLocalChanges = false,
+                )
+                if (supportsDelta) {
                     val serverThrough = checkNotNull(responseServerThrough)
                     DirectSyncPreferences.commitCursors(
                         context, status.deviceId, localDeviceId, serverThrough, delta.through,
@@ -462,7 +512,7 @@ class DirectSyncClient(private val context: Context) {
                 val expectedPath = "blobs/${hash.substring(0, 2)}/${hash.substring(2, 4)}/$hash"
                 require(cursor.getString(1) == expectedPath) { "La biblioteca contiene una ruta de blob inválida" }
                 val file = File(context.filesDir, expectedPath)
-                if (file.isFile && file.length() == cursor.getLong(2)) add(hash)
+                if (LocalBlobIntegrity.matches(file, hash, cursor.getLong(2))) add(hash)
             }
         }
     }
@@ -612,6 +662,13 @@ object DirectSyncScheduler {
 class DirectSyncWorker(context: Context, parameters: WorkerParameters) : Worker(context, parameters) {
     override fun doWork(): Result {
         val settings = DirectSyncPreferences.load(applicationContext) ?: return Result.success()
+        if (!LocalNetworkAccess.isGranted(applicationContext)) {
+            DirectSyncPreferences.writeLastResult(
+                applicationContext,
+                "pendiente: UniShare necesita permiso de red local para sincronizar directamente.",
+            )
+            return Result.success()
+        }
         val store = LocalLibraryStore(applicationContext)
         return try {
             val force = inputData.getBoolean(FORCE_TRANSFER, false)

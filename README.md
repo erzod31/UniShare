@@ -10,14 +10,15 @@ items without depending on an account or a central server.
 [Installation](docs/INSTALLATION.md) · [Privacy](docs/PRIVACY.md) · [Security](SECURITY.md) ·
 [Contributing](CONTRIBUTING.md) · [MIT License](LICENSE)
 
-### Download version 0.6.16
+### Windows and Android candidate 0.6.24
 
-Open the GitHub **Releases** section and download only the appropriate file:
+Local candidate 0.6.24 is not published yet. The real GitHub **Releases** channel still contains
+0.6.16. Candidate packages are identified by these names:
 
-- Windows x64: `UniShare-Windows-Setup-0.6.16.exe`.
-- Portable Windows: `UniShare-Windows-0.6.16.zip`.
-- Android 8 or later: `UniShare-Android-0.6.16.apk`.
-- Chrome/Edge extension for development: `UniShare-Chromium-0.6.16.zip`.
+- Windows x64: `UniShare-Windows-Setup-0.6.24.exe`.
+- Portable Windows: `UniShare-Windows-0.6.24.zip`.
+- Android 8 or later: `UniShare-Android-0.6.24.apk`.
+- Chrome/Edge extension for development: `UniShare-Chromium-0.6.24.zip`.
 
 All packages are rebuilt and validated together before a release. The APK is still signed for
 development and must not be published as a Play Store release. The Windows installer is
@@ -25,11 +26,16 @@ self-contained and does not require a separate .NET installation. The portable Z
 same application. Always verify the published SHA-256 checksum and read the
 [installation guide](docs/INSTALLATION.md).
 
-> **Signing status:** the 0.6.16 installer is not yet Authenticode-signed, and the APK uses a
+> **Signing status:** the 0.6.24 installer is not yet Authenticode-signed, and the APK uses a
 > development key. These limitations are disclosed and these packages must not be confused with
 > signed store packages.
 
 ### Features
+
+Since 0.6.24, **Options and tools > Update UniShare…** (Windows) and **Settings > Update UniShare**
+(Android) check for a newer application package, verify the download and request the native installer
+after confirmation. Versions through 0.6.23 need one initial manual installation. The development
+extension ZIP still needs a real store channel. See [Application updates](docs/APP_UPDATES.md).
 
 - Save and edit links, files, and hybrid items.
 - Collections, tags, favorites, full-text search, and batch actions.
@@ -69,15 +75,32 @@ and changing it does not alter saved data.
 5. Select the result and choose **Edit information** to change its title, source, author,
    description, favorite status, tags, or collections.
 
-UniShare reads the published title and creates an extractive summary from the actual content. It
-prioritizes `articleBody`, structured descriptions of the item, and then the semantic `<article>` or
-`<main>` body. For YouTube videos, it uses the video's original description. Navigation, forms,
-isolated URLs, and link-dominated blocks are excluded. Content is never sent to an external AI
-service. Installing 0.6.13 causes older links to be analyzed again, removes broken menu-based
-summaries, and preserves manually edited notes. You can repeat this operation from **Options and
+UniShare reads the published title and extracts text from the actual content. Articles use
+`articleBody` or the semantic `<article>`/`<main>` body. TikTok uses the exact post's original caption
+from desktop, mobile, or legacy page data, preserving short text, hashtags, emoji, line breaks, and
+links. Other structured multimedia/social posts also keep their literal captions. YouTube retains
+its original-description extractor. Navigation and unrelated recommendations are excluded; content
+is never sent to an external AI service. Installing 0.6.22 retries metadata for older links and
+preserves manually edited notes. Private, deleted, or access-restricted posts may have no available
+description; UniShare keeps the saved link without inventing one. You can retry from **Options and
 tools > Update titles and summaries** on Windows or from **Settings** on Android. Summaries are shown
 in read-only mode and their HTTP/HTTPS addresses are clickable. To intentionally change the text,
-open **Edit information** and select **Modify summary**.
+open **Edit information** and select **Edit summary**.
+
+Content titles are used as the item's title, separately from its description. TikTok uses its explicit
+title when available, or a short caption heading otherwise; version 0.6.21 also replaces older generic
+`TikTok · author` labels when they match the source page. Custom titles remain unchanged.
+Since 0.6.23, descriptions translate automatically **inside UniShare** into the language selected in
+**Settings** (Spanish or English). Translation runs locally using Mozilla's Bergamot engine: your text
+is never uploaded. First use downloads the required public models (usually 15–30 MB per direction);
+later translations work offline. **Show original** reveals the unchanged source. Editing, backup,
+synchronization, search and Obsidian retain the original; translations are a separate local reading
+cache. Turn off **Translate descriptions automatically** in Settings to always read originals.
+Windows requires Microsoft Edge WebView2 Runtime; Android requires an updated system WebView with
+WebAssembly SIMD. An unavailable model or unsupported language leaves the original readable.
+Since 0.6.22, caption-based TikTok titles use at most 80 Unicode characters, cut at a word boundary where possible
+with an ellipsis when needed. Trailing tag/URL lists remain in the complete description. Existing
+titles produced by the old 500-character fallback are shortened; unrelated custom titles are preserved.
 
 To remove an item, select it and choose **Delete**. To work with several items at once, use Ctrl/Shift
 in the Windows list or **Select** on Android. UniShare displays the count and lets you delete or
@@ -159,7 +182,11 @@ HEIC/AVIF, audio, and video files retain a useful type so they can be opened lat
 On Windows, **Options > Export to Obsidian** creates a `UniShare` folder inside the vault with one
 stable note per UUID and its attachments. Later exports update only the managed block and preserve
 **Editable notes**. **Import notes from Obsidian** imports only that block after explicit confirmation.
-`UniShare/Index.md` provides a navigable entry point compatible with desktop and mobile Obsidian.
+`UniShare/Índice.md` provides a navigable entry point. Since 0.6.19, custom properties and text outside
+the managed block are preserved verbatim. Notes for removed items remain if they contain personal
+content, together with their attachments; they no longer appear in the active index. Unrecognized
+destination files are never overwritten. Import skips removed items and notes with ambiguous markers.
+The Markdown format is portable; the current desktop/mobile Obsidian visual walkthrough is not verified.
 
 The unpacked extension under `integrations/chromium-extension` saves the current tab from Chrome or
 Edge. It can retain only the link or create an offline copy containing the text already rendered by
@@ -178,8 +205,8 @@ allows all long forms to scroll.
 - [DEVELOPMENT.md](DEVELOPMENT.md): toolchains, builds, tests, and temporary profiles.
 - [docs/architecture.md](docs/architecture.md): architecture and component boundaries.
 - [docs/requirements.md](docs/requirements.md): requirements and verifiable scope.
-- [docs/PUBLISHING.md](docs/PUBLISHING.md): create a new public repository without copying history or
-  private files.
+- [docs/PUBLISHING.md](docs/PUBLISHING.md): publish sanitized snapshots from one workspace without
+  copying private history or files.
 
 Never publish real libraries, backups, pairing keys, private `.ts.net` names, user paths, or
 certificates. Contributions are distributed under the [MIT License](LICENSE).
@@ -194,14 +221,15 @@ elementos híbridos sin depender de una cuenta ni de un servidor central.
 [Instalación](docs/INSTALLATION.md) · [Privacidad](docs/PRIVACY.md) · [Seguridad](SECURITY.md) ·
 [Contribuir](CONTRIBUTING.md) · [Licencia MIT](LICENSE)
 
-### Descargar la versión 0.6.16
+### Candidato Windows y Android 0.6.24
 
-Abre la sección **Releases** de GitHub y descarga únicamente el archivo adecuado:
+El candidato local 0.6.24 todavía no está publicado. El canal real **Releases** de GitHub continúa
+en 0.6.16. Los candidatos se identifican por estos nombres:
 
-- Windows x64: `UniShare-Windows-Setup-0.6.16.exe`.
-- Windows portátil: `UniShare-Windows-0.6.16.zip`.
-- Android 8 o posterior: `UniShare-Android-0.6.16.apk`.
-- Extensión Chrome/Edge para desarrollo: `UniShare-Chromium-0.6.16.zip`.
+- Windows x64: `UniShare-Windows-Setup-0.6.24.exe`.
+- Windows portátil: `UniShare-Windows-0.6.24.zip`.
+- Android 8 o posterior: `UniShare-Android-0.6.24.apk`.
+- Extensión Chrome/Edge para desarrollo: `UniShare-Chromium-0.6.24.zip`.
 
 Los paquetes se regeneran y validan conjuntamente antes de una entrega. La APK continúa firmada
 para depuración y no debe publicarse como versión de Play Store.
@@ -209,10 +237,15 @@ El instalador Windows es autocontenido y no requiere instalar .NET por separado.
 genera con el mismo contenido. Comprueba siempre el SHA-256 publicado y consulta la
 [guía de instalación](docs/INSTALLATION.md).
 
-> **Estado de firma:** el instalador 0.6.16 todavía no tiene Authenticode y el APK usa una clave de
+> **Estado de firma:** el instalador 0.6.24 todavía no tiene Authenticode y el APK usa una clave de
 > desarrollo. Estas limitaciones son visibles y no deben confundirse con paquetes de tienda firmados.
 
 ### Qué ofrece
+
+Desde 0.6.24, **Opciones y herramientas > Actualizar UniShare…** en Windows y **Ajustes > Actualizar
+UniShare** en Android permiten buscar, descargar, verificar y confirmar la actualización de la app.
+0.6.23 y anteriores necesitan una primera instalación manual. El ZIP de la extensión todavía
+necesita un canal de tienda. [Actualización de la aplicación](docs/APP_UPDATES.md).
 
 - Guardado y edición de enlaces, archivos y elementos híbridos.
 - Colecciones, etiquetas, favoritos, búsqueda FTS y acciones por lote.
@@ -253,15 +286,33 @@ preferencia y el cambio no altera los datos guardados.
 5. Selecciona el resultado y pulsa **Editar información** para cambiar título, fuente, autor, descripción,
    favorito, etiquetas o colecciones.
 
-UniShare consulta el título publicado y crea un resumen extractivo del contenido real: prioriza
-`articleBody`, descripciones estructuradas del elemento y después el cuerpo semántico `<article>` o
-`<main>`; para vídeos de YouTube usa la descripción original del vídeo. Omite navegación, formularios,
-URLs aisladas y bloques dominados por enlaces. No envía el contenido a una IA externa. Al instalar
-0.6.13 vuelve a analizar los enlaces anteriores, retira los resúmenes defectuosos formados por menús y
-conserva las notas editadas. La consulta puede repetirse desde **Opciones y
+UniShare consulta el título publicado y extrae texto del contenido real. En artículos usa `articleBody`
+o el cuerpo semántico `<article>`/`<main>`. En TikTok obtiene el pie original del post exacto desde los
+datos de escritorio, móviles o antiguos, conservando textos cortos, hashtags, emojis, saltos y enlaces.
+Las demás publicaciones multimedia/sociales con datos estructurados también conservan su pie literal.
+YouTube mantiene su extractor de descripción original. Se omiten navegación y recomendaciones ajenas;
+no se envía el contenido a una IA externa. Al instalar 0.6.22 se vuelve a consultar la información de
+los enlaces anteriores respetando las notas manuales. Un post privado, eliminado o restringido puede
+no ofrecer descripción: se conserva el enlace sin inventarla. La consulta puede repetirse desde **Opciones y
 herramientas > Actualizar títulos y resúmenes** en Windows o desde **Ajustes** en Android.
 Los resúmenes se muestran en modo lectura y sus direcciones HTTP/HTTPS son pulsables. Para cambiar el
 texto deliberadamente, abre **Editar información** y pulsa **Modificar resumen**.
+
+El título del contenido se usa como título del elemento, separado de la descripción. TikTok usa su
+título específico cuando existe o un encabezado breve del pie en caso contrario; 0.6.21 también sustituye
+etiquetas genéricas antiguas `TikTok · autor` cuando coinciden con la página de origen. Se conservan los
+títulos personalizados. Desde 0.6.23 las descripciones se traducen automáticamente **dentro de UniShare**
+al idioma elegido en **Ajustes** (español o inglés). El motor Bergamot de Mozilla trabaja en el dispositivo;
+el texto no se envía a un traductor externo. El primer uso descarga modelos públicos (normalmente
+15–30 MB por dirección); después funciona sin conexión. **Ver original** muestra el texto conservado.
+Edición, backup, sincronización, búsqueda y Obsidian usan el original; la traducción es una caché local
+de lectura. Desactiva **Traducir descripciones automáticamente** en Ajustes para leer siempre originales.
+Windows necesita Microsoft Edge WebView2 Runtime y Android un WebView actualizado con WebAssembly SIMD.
+Si falta un modelo o el idioma no está soportado, el original sigue accesible.
+Desde 0.6.22, los títulos TikTok derivados del pie tienen un máximo de 80 caracteres Unicode, con
+corte por palabras y elipsis cuando hace falta. Las listas finales de etiquetas/URLs siguen en la
+descripción completa. Se acortan los títulos automáticos anteriores de hasta 500 caracteres y se
+conservan los títulos personalizados que no coincidan con esa alternativa antigua.
 
 Para quitar un elemento, selecciónalo y pulsa **Eliminar**. Para trabajar con varios a la vez, usa
 Ctrl/Mayús en la lista de Windows o **Seleccionar** en Android; UniShare muestra el recuento y permite
@@ -340,7 +391,11 @@ En Windows, **Opciones > Exportar a Obsidian** crea una carpeta `UniShare` dentr
 una nota estable por UUID y sus adjuntos. Las siguientes exportaciones actualizan sólo el bloque
 gestionado y conservan `Notas editables`. **Importar notas desde Obsidian** trae únicamente ese bloque
 después de una confirmación explícita. `UniShare/Índice.md` ofrece una entrada navegable compatible con
-Obsidian de escritorio y móvil.
+Obsidian de escritorio y móvil. Desde 0.6.19 también se conservan literalmente propiedades y apéndices
+personales. Las notas de elementos retirados con contenido personal conservan sus adjuntos y dejan de
+aparecer en el índice activo; los destinos no reconocidos no se sobrescriben. La importación omite
+elementos eliminados y marcadores ambiguos. El recorrido visual actual en los clientes Obsidian sigue
+NO VERIFICADO; la portabilidad Markdown y la conservación sí tienen pruebas automatizadas.
 
 La extensión sin compilar de `integrations/chromium-extension` permite guardar la pestaña actual en
 Chrome o Edge. Puede conservar sólo el enlace o crear una copia offline con el texto que JavaScript ya
@@ -359,8 +414,8 @@ para TalkBack y permite desplazar todos los formularios largos.
 - [DEVELOPMENT.md](DEVELOPMENT.md): toolchains, compilación, pruebas y perfiles temporales.
 - [docs/architecture.md](docs/architecture.md): arquitectura y límites entre componentes.
 - [docs/requirements.md](docs/requirements.md): requisitos y alcance verificable.
-- [docs/PUBLISHING.md](docs/PUBLISHING.md): crear un repositorio público nuevo sin copiar historial ni
-  archivos privados.
+- [docs/PUBLISHING.md](docs/PUBLISHING.md): publicar instantáneas desde una sola carpeta sin copiar
+  historial ni archivos privados.
 
 No publiques bibliotecas reales, respaldos, claves de emparejamiento, nombres privados `.ts.net`, rutas
 de usuario ni certificados. Las contribuciones se distribuyen bajo la [licencia MIT](LICENSE).

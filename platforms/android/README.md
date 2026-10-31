@@ -1,4 +1,4 @@
-# UniShare para Android 0.6.16
+# UniShare para Android 0.6.23
 
 La aplicación Android es local-first: guarda enlaces, archivos e híbridos en SQLite privado y conserva
 blobs en un CAS SHA-256. Recibe contenido con Sharesheet/SAF, busca, edita metadatos y organización,
@@ -16,6 +16,23 @@ analizar los enlaces anteriores después de sincronizar, sustituye los valores a
 respeta las notas editadas. **Ajustes > Actualizar títulos y resúmenes** permite reintentar.
 Desde 0.6.13, los vídeos de YouTube usan su descripción original y la migración v3 retira resúmenes
 históricos formados por menús sin sobrescribir notas manuales.
+En 0.6.20 la migración v4 vuelve a consultar los enlaces anteriores. TikTok usa el pie del post exacto
+en la variante móvil `webapp.reflow.video.detail`, la de escritorio y los formatos legacy. Conserva
+hashtags, emojis, saltos, enlaces y textos breves; los demás posts multimedia/sociales JSON-LD también
+usan su pie literal y comprueban la identidad del elemento. Las notas manuales permanecen intactas.
+Un post privado, eliminado o restringido puede no publicar descripción: el enlace se conserva y se
+puede volver a intentar desde **Actualizar títulos y resúmenes**.
+La migración v6 de 0.6.21 corrige también títulos genéricos TikTok que coinciden con los de la página,
+conservando títulos personalizados. Los títulos específicos y titulares JSON-LD se usan en el campo
+título; el pie permanece en descripción. Desde 0.6.23 se traduce automáticamente dentro de la app
+al español o inglés elegido en **Ajustes**. Bergamot trabaja localmente, sin enviar descripciones;
+descarga modelos públicos la primera vez y después funciona offline. **Ver original** permite consultar
+el texto conservado. **Modificar resumen** edita ese original, nunca la traducción derivada. La opción
+**Traducir descripciones automáticamente** permite desactivar la función. Se requiere un WebView del
+sistema actualizado con WebAssembly SIMD; la falta de motor/modelos mantiene el original accesible.
+En 0.6.22 la alternativa de título derivada del pie es breve: máximo 80 caracteres Unicode, con corte
+por palabras cuando es posible y sin dividir pares sustitutos; la descripción permanece completa. La migración v7 sólo sustituye los
+títulos que coincidan con la antigua alternativa del pie o con una etiqueta genérica reconocida.
 Desde 0.6.14 los resúmenes se presentan en modo lectura, las direcciones HTTP/HTTPS son pulsables y el
 campo de texto sólo se habilita al elegir **Modificar resumen**.
 Desde 0.6.15 la interfaz puede cambiarse entre español e inglés desde **Ajustes**. La preferencia se
@@ -24,19 +41,57 @@ guarda en el dispositivo y nunca modifica el contenido de la biblioteca.
 ## Requisitos de compilación
 
 - JDK 17 o 21.
-- Android SDK con `platforms;android-36` y Build Tools 36.0.0.
-- Gradle 8.14.5, AGP 8.13.2, Kotlin 2.3.21, Compose BOM 2026.06.01 y AndroidX Core 1.18.0
-  fijados por el proyecto. Son las últimas revisiones estables cuyos metadatos admiten API 36.
+- Android SDK con plataforma API 37 y Build Tools 36.0.0 o posterior.
+- Gradle 9.8.1, AGP 9.4.1, Kotlin/Compose Compiler 2.2.10, Compose BOM 2026.09.00 y
+  AndroidX Core 1.19.1 fijados por el proyecto. AGP usa su integración Kotlin incorporada.
 - Conexión inicial para resolver dependencias de Google Maven/Maven Central.
 
 ```powershell
 cd platforms/android
-.\gradlew.bat :app:testDebugUnitTest :app:lintRelease :app:assembleRelease
+.\gradlew.bat test lintRelease assembleRelease
 ```
 
 El APK optimizado queda en `app/build/outputs/apk/release/app-release.apk`. La entrega lateral conserva
 la misma firma de depuración de las versiones anteriores para permitir `adb install -r`; no debe
 publicarse en una tienda.
+La firma de producción admite APK/AAB mediante variables de entorno y rechaza credenciales incompletas;
+consulta [Firma y actualizaciones](../../docs/SIGNING.md) antes de cambiar una clave.
+
+## Pruebas instrumentadas aisladas
+
+La variante debug usa `org.unishare.app.qa`: nunca comparte SQLite, archivos o emparejamiento con la
+instalación normal. Sólo se utilizan datos sintéticos y las bibliotecas de pruebas no entran en release.
+Con un emulador Android 17 ya iniciado y `ANDROID_HOME` configurado:
+
+```powershell
+.\platforms\android\test-device.ps1 -Serial emulator-5580
+.\platforms\android\test-device.ps1 -Serial emulator-5580 -SkipBuild -LargeText
+```
+
+Ejecuta estos comandos desde la raíz del repositorio. La segunda orden usa temporalmente texto al 200 %
+y restaura su valor al terminar. El script instala únicamente QA, reinicia únicamente su permiso de red
+local y conserva los informes en `artifacts/test-results`. Los escenarios cubren persistencia offline,
+papelera y rollback, migraciones v1/v4→v5, archivos `content://`, backup completo, conflictos, corrupción,
+cortes HTTP, ACK inválido, borradores y el selector SAF del sistema con recreación de actividad.
+El permiso Android 17 tiene casos de denegación y concesión y las barras del sistema se comprueban en
+ambos temas. En sistemas anteriores al API 37, el caso exclusivo de ese permiso se omite explícitamente.
+
+`AndroidWindowsIntegrationTest` se ejecuta por separado contra un nodo Windows temporal, con `adb reverse`
+y los argumentos `windowsEndpoint`, `windowsKey`, `windowsSeedTitle`. El nodo debe contener un híbrido
+de prueba cuyo título coincida y cuyo HTML incluya `Contenido del nodo Windows`. La prueba intercambia
+archivos/metadatos, confirma los cursores y fuerza una reparación sin nuevas operaciones de metadatos.
+Nunca utilices para esta prueba la biblioteca o la clave del usuario.
+
+`OriginMetadataDeviceTest` ejecuta los fixtures comunes con el JSON nativo de Android y está incluido
+en la suite anterior. `OriginMetadataNetworkTest` es una prueba de Internet separada: requiere una URL
+TikTok pública (`metadataUrl`) y el SHA-256 UTF-8 esperado de su pie (`expectedCaptionSha256`). Ejemplo:
+
+```powershell
+adb -s <serial-QA> shell am instrument -w -r -e class org.unishare.app.OriginMetadataNetworkTest -e metadataUrl <URL-publica> -e expectedCaptionSha256 <SHA256> org.unishare.app.qa.test/androidx.test.runner.AndroidJUnitRunner
+```
+
+No se ejecuta sin esos argumentos ni se declara superada si el proveedor impide acceder al post.
+`org.json:json` sólo permite repetir los mismos contratos en la JVM; no se incorpora al APK.
 
 ## Configurar sincronización directa
 
@@ -45,6 +100,8 @@ publicarse en una tienda.
    automáticamente Tailscale Serve y muestra un QR.
 3. Escanea el QR con la cámara. El enlace `unishare://pair` abre Android, valida la dirección privada,
    guarda el emparejamiento y sincroniza de inmediato. La entrada manual queda como recuperación.
+4. En Android 17 o posterior, acepta **Red local** cuando UniShare lo solicite. Sin ese permiso el
+   sistema bloquea la conexión directa; Android 16 y anteriores no muestran este diálogo.
 
 Android envía el cambio justo después de guardar. Mientras la app está visible consulta cada 15 segundos
 una revisión pequeña y sólo reconcilia la biblioteca cuando cambió. También sincroniza al abrir y usa
@@ -105,5 +162,7 @@ Para el emulador de desarrollo se admite únicamente en build `debug` HTTP hacia
 - La versión 0.6.9 negocia hashes y transfiere sólo los blobs ausentes y los agregados de items modificados.
   Los ACK y cursores se guardan después del commit; un fallo reenvía el delta y un cursor inválido fuerza
   un snapshot completo de recuperación.
+- La versión 0.6.17 verifica el SHA-256 antes de anunciar un blob como disponible, solicita el permiso de
+  red local de Android 17 y valida la confirmación causal antes de incorporar una respuesta incremental.
 - El emulador API 36 verificó actualización sin pérdida, persistencia offline y sincronización HTTP real
   Android→Windows (6 elementos, 3 assets, un blob) y Windows→Android (8 elementos finales).

@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Executable,
-    [int]$TimeoutSeconds = 15
+    [int]$TimeoutSeconds = 15,
+    [switch]$SmokeOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -36,12 +37,29 @@ try {
         $configuration,
         [Text.UTF8Encoding]::new($false))
 
-    $process = Start-Process -FilePath $executablePath -ArgumentList @(
+    $arguments = @(
         "--allow-multiple",
         "--skip-tailscale",
         "--exit-on-close",
         "--profile",
-        $profileRoot) -PassThru
+        $profileRoot)
+    if ($SmokeOnly) { $arguments += '--smoke-test' }
+    if ($SmokeOnly) {
+        $process = Start-Process -FilePath $executablePath -ArgumentList $arguments -WindowStyle Hidden -PassThru
+    }
+    else {
+        # The ordinary clean-exit check intentionally exercises its own visible app window.
+        $process = Start-Process -FilePath $executablePath -ArgumentList $arguments -PassThru
+    }
+
+    if ($SmokeOnly) {
+        if (-not $process.WaitForExit($TimeoutSeconds * 1000) -or $process.ExitCode -ne 0) {
+            throw 'El smoke de arranque/búsqueda/cierre no terminó correctamente.'
+        }
+        if (-not (Test-Path -LiteralPath (Join-Path $profileRoot 'library.db'))) { throw 'El smoke no creó library.db.' }
+        Write-Output 'Arranque/búsqueda/cierre smoke verificados, salida 0; no se ejecutó ningún instalador.'
+        return
+    }
 
     $startupDeadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $startupDeadline) {

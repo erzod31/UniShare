@@ -23,6 +23,16 @@ aplicación o desinstalarla puede eliminar la copia local; crea un respaldo ante
 - La extensión Chromium se comunica con UniShare mediante `127.0.0.1`; no envía la biblioteca al proyecto,
   a Microsoft ni a Google.
 - Obsidian recibe únicamente los datos que el usuario exporta a la bóveda elegida.
+- La traducción automática de descripciones es **local** desde 0.6.23. No abre un navegador ni envía
+  texto a Google, Mozilla o un servidor de traducción. El primer uso de cada par descarga modelos
+  públicos inmutables de `firefox-settings-attachments.cdn.mozilla.net`; el CDN puede registrar la IP.
+  Sólo se solicitan archivos del catálogo distribuido, sin texto, URL guardada, clave de emparejamiento
+  ni identificador de biblioteca en la petición.
+- Modelos y traducciones derivadas se guardan en `cache/translation` dentro del perfil Windows y en
+  la caché privada Android. Son datos locales sin cifrado adicional; no forman parte de backups,
+  sincronización ni Obsidian. Desactivar la función muestra originales y detiene nuevas traducciones;
+  no borra esos archivos. Borrar la caché exige descargar de nuevo los idiomas. El original permanece
+  en la biblioteca y la traducción nunca lo sobrescribe.
 
 ## Control del usuario
 

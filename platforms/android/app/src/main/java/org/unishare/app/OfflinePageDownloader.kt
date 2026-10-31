@@ -11,6 +11,8 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.UUID
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class DownloadedContent(
     val file: File,
@@ -27,7 +29,20 @@ data class LinkMetadata(
     val author: String?,
     val description: String?,
     val promotionalDescription: String? = null,
+    val originDescriptionFound: Boolean = false,
+    val pageTitle: String? = null,
 ) {
+    fun resolveTitle(currentTitle: String, originalUrl: String): String {
+        if (title.isNullOrBlank()) return currentTitle
+        if (currentTitle == SharePayload.titleFromUrl(originalUrl)) return title
+        val host = URI(originalUrl).host.orEmpty().trimEnd('.')
+        val tikTok = host.equals("tiktok.com", true) || host.endsWith(".tiktok.com", true)
+        val generic = currentTitle.equals("TikTok", true) || currentTitle.equals("TikTok - Make Your Day", true) || currentTitle.startsWith("TikTok · ", true) ||
+            currentTitle.startsWith("TikTok | ", true)
+        val previousCaptionTitle = originDescriptionFound && currentTitle == OriginContentRules.legacyTitleFromCaption(description)
+        return if (tikTok && ((generic && currentTitle == pageTitle) || previousCaptionTitle)) title else currentTitle
+    }
+
     fun resolveDescription(currentDescription: String?): String? =
         if (currentDescription.isNullOrBlank() ||
             isKnownNavigationJunk(currentDescription) ||
@@ -59,7 +74,22 @@ data class LinkMetadata(
 
 class OfflinePageDownloader(private val context: Context) {
     fun fetchMetadata(rawUrl: String): LinkMetadata? {
-        var uri = URI(rawUrl.trim())
+        val originalUri = URI(rawUrl.trim())
+        val page = readMetadataPage(originalUri)
+        if (page.metadata?.originDescriptionFound == true) return page.metadata
+        val postUri = if (OriginContentRules.tikTokPostId(page.uri) != null) page.uri else originalUri
+        val alternative = TikTokMetadata.oEmbedUri(postUri) ?: return page.metadata
+        val fallback = try {
+            readMetadataPage(alternative, oEmbedFor = postUri).metadata
+        } catch (_: java.io.IOException) { null }
+        return fallback?.takeIf { it.originDescriptionFound }
+            ?.copy(promotionalDescription = page.metadata?.promotionalDescription, pageTitle = page.metadata?.pageTitle) ?: page.metadata
+    }
+
+    private data class MetadataPage(val metadata: LinkMetadata?, val uri: URI)
+
+    private fun readMetadataPage(initialUri: URI, oEmbedFor: URI? = null): MetadataPage {
+        var uri = initialUri
         repeat(MAXIMUM_REDIRECTS + 1) { redirectCount ->
             require(SharePayload.isWebUrl(uri.toASCIIString())) { "El enlace no es válido" }
             OfflineNetworkPolicy.requirePublic(uri)
@@ -68,7 +98,7 @@ class OfflinePageDownloader(private val context: Context) {
                 connectTimeout = 15_000
                 readTimeout = 30_000
                 instanceFollowRedirects = false
-                setRequestProperty("Accept", "text/html,application/xhtml+xml;q=0.9")
+                setRequestProperty("Accept", if (oEmbedFor == null) "text/html,application/xhtml+xml;q=0.9" else "application/json")
                 setRequestProperty("User-Agent", "UniShare-Android/${BuildConfig.VERSION_NAME}")
             }
             try {
@@ -81,8 +111,11 @@ class OfflinePageDownloader(private val context: Context) {
                     }
                     HttpURLConnection.HTTP_OK -> {
                         val mimeType = connection.contentType?.substringBefore(';')?.trim()?.lowercase()
-                        if (mimeType !in setOf("text/html", "application/xhtml+xml")) return null
-                        require(connection.contentLengthLong < 0 || connection.contentLengthLong <= MAXIMUM_METADATA_BYTES) {
+                        if (if (oEmbedFor != null) mimeType != "application/json" else
+                            mimeType !in setOf("text/html", "application/xhtml+xml")
+                        ) return MetadataPage(null, uri)
+                        val announced = connection.contentLengthLong
+                        require(announced < 0 || announced <= MAXIMUM_METADATA_BYTES) {
                             "Los metadatos de la página superan el límite"
                         }
                         val output = java.io.ByteArrayOutputStream()
@@ -97,17 +130,25 @@ class OfflinePageDownloader(private val context: Context) {
                                 output.write(buffer, 0, count)
                             }
                         }
-                        return OfflineHtmlSnapshot.extractMetadata(
-                            output.toString(Charsets.UTF_8.name()), uri,
-                        )
+                        require(announced < 0 || output.size().toLong() == announced) {
+                            "La descarga terminó con un tamaño distinto al anunciado"
+                        }
+                        val text = output.toString(Charsets.UTF_8.name())
+                        return MetadataPage(if (oEmbedFor == null) OfflineHtmlSnapshot.extractMetadata(text, uri)
+                            else TikTokMetadata.readOEmbed(text, oEmbedFor), uri)
                     }
-                    else -> throw IllegalStateException("El servidor respondió con HTTP $code")
+                    else -> {
+                        if (oEmbedFor != null || OriginContentRules.tikTokPostId(uri) != null ||
+                            OriginContentRules.tikTokPostId(initialUri) != null
+                        ) return MetadataPage(null, uri)
+                        throw IllegalStateException("El servidor respondió con HTTP $code")
+                    }
                 }
             } finally {
                 connection.disconnect()
             }
         }
-        return null
+        return MetadataPage(null, uri)
     }
 
     fun download(rawUrl: String): DownloadedContent {
@@ -141,7 +182,7 @@ class OfflinePageDownloader(private val context: Context) {
         throw IllegalStateException("La descarga no pudo completarse")
     }
 
-    private fun readResponse(connection: HttpURLConnection, sourceUri: URI): DownloadedContent {
+    internal fun readResponse(connection: HttpURLConnection, sourceUri: URI): DownloadedContent {
         val announced = connection.contentLengthLong
         require(announced < 0 || announced <= MAXIMUM_DOWNLOAD_BYTES) {
             "La descarga supera el límite de 256 MiB"
@@ -166,6 +207,9 @@ class OfflinePageDownloader(private val context: Context) {
                 }
             }
 
+            require(announced < 0 || length == announced) {
+                "La descarga terminó con un tamaño distinto al anunciado"
+            }
             var mimeType = connection.contentType?.substringBefore(';')?.trim()?.lowercase()
                 ?.takeIf { it.isNotEmpty() } ?: "application/octet-stream"
             var name = OfflineDownloadNames.fromUri(sourceUri, mimeType)
@@ -266,7 +310,7 @@ object OfflineHtmlSnapshot {
         META_TAG.findAll(source).forEach { tag ->
             val attributes = ATTRIBUTE.findAll(tag.value).associate { attribute ->
                 val value = attribute.groups[2]?.value?.ifEmpty { null }
-                    ?: attribute.groups[3]?.value.orEmpty()
+                    ?: attribute.groups[3]?.value?.ifEmpty { null } ?: attribute.groups[4]?.value.orEmpty()
                 attribute.groups[1]!!.value.lowercase() to plainText(value)
             }
             val key = attributes["name"] ?: attributes["property"]
@@ -275,18 +319,23 @@ object OfflineHtmlSnapshot {
         }
         val promotionalDescription = values["og:description"] ?: values["twitter:description"]
             ?: values["description"]
-        val originTitle = values["og:title"] ?: values["twitter:title"] ?: documentTitle
+        val post = TikTokMetadata.extract(source, sourceUri)
+        val structuredTitle = extractStructuredContent(source, sourceUri, ContentField.TITLE)?.text?.let(::plainText)?.ifBlank { null }
+        val originTitle = post?.title ?: structuredTitle ?: values["og:title"] ?: values["twitter:title"] ?: documentTitle
+        val description = if (post != null) post.description else extractContentSummary(source, originTitle, sourceUri)
         return LinkMetadata(
-            originTitle?.take(500),
-            (values["og:site_name"] ?: values["application-name"] ?: sourceUri.host).take(500),
-            (values["author"] ?: values["article:author"])?.take(500),
-            extractContentSummary(source, originTitle, sourceUri),
+            OriginContentRules.limitField(originTitle, 500),
+            (post?.source ?: values["og:site_name"] ?: values["application-name"] ?: sourceUri.host).take(500),
+            (post?.author ?: values["author"] ?: values["article:author"])?.take(500),
+            description,
             promotionalDescription?.take(4000),
+            originDescriptionFound = post != null || description != null,
+            pageTitle = values["og:title"] ?: values["twitter:title"] ?: documentTitle,
         )
     }
 
     private fun extractContentSummary(source: String, title: String?, sourceUri: URI): String? {
-        extractStructuredArticleBody(source)?.let { body ->
+        extractStructuredContent(source, sourceUri, ContentField.ARTICLE_BODY)?.text?.let { body ->
             buildSummary(listOf(body), title)?.let { return it }
         }
         if (isYouTubeVideoUri(sourceUri)) {
@@ -294,9 +343,11 @@ object OfflineHtmlSnapshot {
                 buildSummary(listOf(description), title)?.let { return it }
             }
         }
-        extractStructuredDescription(source)?.let { description ->
-            buildSummary(listOf(description), title)?.let { return it }
+        extractStructuredContent(source, sourceUri, ContentField.DESCRIPTION)?.let { description ->
+            if (description.isCaption) return OriginContentRules.normalizeCaption(description.text)
+            buildSummary(listOf(description.text), title)?.let { return it }
         }
+        if (OriginContentRules.tikTokPostId(sourceUri) != null) return null
         var cleaned = ACTIVE_CONTENT.replace(source, "")
         cleaned = NON_CONTENT_REGION.replace(cleaned, "")
         val semanticScope = selectContentScope(cleaned)
@@ -328,28 +379,52 @@ object OfflineHtmlSnapshot {
             text.takeUnless { linkedCharacters * 2 > text.length || looksLikeBoilerplate(it) }
         }.toList()
 
-    private fun extractStructuredArticleBody(source: String): String? {
-        JSON_LD_SCRIPT.findAll(source).forEach { script ->
-            ARTICLE_BODY_JSON.find(script.groupValues[1])?.groupValues?.get(1)?.let { encoded ->
-                return plainText(unescapeJsonString(encoded))
-            }
-        }
-        return null
-    }
+    private data class ContentDescription(val text: String, val isCaption: Boolean, val hasIdentity: Boolean)
 
-    private fun extractStructuredDescription(source: String): String? {
-        JSON_LD_SCRIPT.findAll(source).forEach { script ->
-            val json = script.groupValues[1]
-            val hasSupportedType = CONTENT_TYPE_JSON.findAll(json).any { typeMatch ->
-                typeMatch.groupValues.drop(1).joinToString(" ").split(Regex("[^A-Za-z]+"))
-                    .any(SUPPORTED_CONTENT_TYPES::contains)
-            }
-            if (!hasSupportedType) return@forEach
-            DESCRIPTION_JSON.find(json)?.groupValues?.get(1)?.let { encoded ->
-                return plainText(unescapeJsonString(encoded))
+    private enum class ContentField { ARTICLE_BODY, DESCRIPTION, TITLE }
+
+    private fun extractStructuredContent(source: String, sourceUri: URI, field: ContentField): ContentDescription? {
+        val candidates = mutableListOf<ContentDescription>()
+        fun visit(value: Any?) {
+            when (value) {
+                is JSONObject -> {
+                    val type = value.opt("@type")
+                    val types = when (type) {
+                        is String -> listOf(type)
+                        is JSONArray -> (0 until type.length()).mapNotNull { type.opt(it) as? String }
+                        else -> emptyList()
+                    }.map { it.removePrefix("https://schema.org/").removePrefix("http://schema.org/").lowercase() }
+                    val isCaption = types.any(CAPTION_CONTENT_TYPES::contains)
+                    val isArticle = types.any(ARTICLE_CONTENT_TYPES::contains)
+                    val identity = sequenceOf("mainEntityOfPage", "url", "@id").mapNotNull { key ->
+                        when (val candidate = value.opt(key)) {
+                            is String -> candidate.ifBlank { null }
+                            is JSONObject -> (candidate.opt("@id") as? String)?.ifBlank { null }
+                            else -> null
+                        }
+                    }.firstOrNull()
+                    if ((if (field == ContentField.ARTICLE_BODY) isArticle && !isCaption else isCaption || isArticle) &&
+                        OriginContentRules.matchesContentUrl(identity, sourceUri)
+                    ) {
+                        val keys = if (field == ContentField.TITLE) listOf("headline", "name")
+                            else if (field == ContentField.ARTICLE_BODY) listOf("articleBody")
+                            else if (isCaption) listOf("caption", "description", "text", "articleBody")
+                            else listOf("description")
+                        keys.firstNotNullOfOrNull { key -> (value.opt(key) as? String)?.ifBlank { null } }?.let {
+                            candidates += ContentDescription(it, field == ContentField.DESCRIPTION && isCaption, identity != null)
+                        }
+                    }
+                    val keys = value.keys()
+                    while (keys.hasNext()) visit(value.opt(keys.next()))
+                }
+                is JSONArray -> for (index in 0 until value.length()) visit(value.opt(index))
             }
         }
-        return null
+        JSON_LD_SCRIPT.findAll(source).forEach { visit(OriginContentRules.parseJson(it.groupValues[1])) }
+        if (candidates.isEmpty()) return null
+        val hasIdentity = candidates.any { it.hasIdentity }
+        val best = candidates.filter { it.hasIdentity == hasIdentity }
+        return best.first().takeIf { best.map(ContentDescription::text).distinct().size == 1 }
     }
 
     private fun extractYouTubeVideoDescription(source: String): String? =
@@ -491,19 +566,7 @@ object OfflineHtmlSnapshot {
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
     private val JSON_LD_SCRIPT = Regex(
-        "<script\\b[^>]*type\\s*=\\s*['\"]application/ld\\+json['\"][^>]*>(.*?)</script\\s*>",
-        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-    )
-    private val ARTICLE_BODY_JSON = Regex(
-        "\\\"articleBody\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"",
-        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-    )
-    private val DESCRIPTION_JSON = Regex(
-        "\\\"description\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"",
-        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
-    )
-    private val CONTENT_TYPE_JSON = Regex(
-        "\\\"@type\\\"\\s*:\\s*(?:\\\"([^\\\"]+)\\\"|\\[([^]]+)])",
+        "<script\\b[^>]*type\\s*=\\s*(?:['\"]application/ld\\+json['\"]|application/ld\\+json(?=\\s|>))[^>]*>(.*?)</script\\s*>",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
     private val YOUTUBE_SHORT_DESCRIPTION = Regex(
@@ -535,11 +598,14 @@ object OfflineHtmlSnapshot {
     private val SENTENCE_BOUNDARY = Regex("(?<=[.!?…])\\s+")
     private val CAMEL_CASE_BOUNDARY = Regex("(?<=[a-zà-ÿ])(?=[A-Z])")
     private val META_TAG = Regex("<meta\\b[^>]*>", RegexOption.IGNORE_CASE)
-    private val ATTRIBUTE = Regex("([A-Za-z_:][-A-Za-z0-9_:.]*)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)')")
+    private val ATTRIBUTE = Regex("([A-Za-z_:][-A-Za-z0-9_:.]*)\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))")
     private val BLOCK_TAGS = Regex("</?(?:p|div|br|li|h[1-6]|tr|section|article|header|footer)\\b[^>]*>", RegexOption.IGNORE_CASE)
     private val ALL_TAGS = Regex("<[^>]+>", RegexOption.DOT_MATCHES_ALL)
-    private val SUPPORTED_CONTENT_TYPES = setOf(
-        "Article", "NewsArticle", "BlogPosting", "TechArticle", "Report", "ScholarlyArticle",
-        "VideoObject", "AudioObject", "PodcastEpisode",
+    private val ARTICLE_CONTENT_TYPES = setOf(
+        "article", "newsarticle", "blogposting", "techarticle", "report", "scholarlyarticle",
+    )
+    private val CAPTION_CONTENT_TYPES = setOf(
+        "videoobject", "audioobject", "podcastepisode", "imageobject", "photograph",
+        "socialmediaposting", "discussionforumposting",
     )
 }

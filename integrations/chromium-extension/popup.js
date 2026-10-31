@@ -67,45 +67,131 @@ function capturePage(includeRendered) {
     }
     return summary;
   };
-  const findArticleBody = (value) => {
-    if (!value || typeof value !== 'object') return '';
-    if (typeof value.articleBody === 'string' && value.articleBody.trim()) return value.articleBody;
-    const children = Array.isArray(value) ? value : Object.values(value);
-    for (const child of children) {
-      const result = findArticleBody(child);
-      if (result) return result;
-    }
-    return '';
+  const captionText = value => {
+    if (typeof value !== 'string') return '';
+    const characters = Array.from(value.replace(/\r\n?/g, '\n').trim());
+    return characters.length > 4000 ? characters.slice(0, 3999).join('') + '…' : characters.join('');
   };
-  const contentTypes = new Set([
-    'Article', 'NewsArticle', 'BlogPosting', 'TechArticle', 'Report', 'ScholarlyArticle',
-    'VideoObject', 'AudioObject', 'PodcastEpisode'
-  ]);
-  const findStructuredDescription = (value) => {
-    if (!value || typeof value !== 'object') return '';
-    const types = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
-    if (types.some(type => contentTypes.has(type)) && typeof value.description === 'string') {
-      return value.description;
-    }
-    const children = Array.isArray(value) ? value : Object.values(value);
-    for (const child of children) {
-      const result = findStructuredDescription(child);
-      if (result) return result;
-    }
-    return '';
+  const limitField = value => {
+    if (typeof value !== 'string') return '';
+    const text = value.trim();
+    const end = /[\uD800-\uDBFF]/.test(text[499] || '') ? 499 : 500;
+    return text.length > 500 ? text.slice(0, end) : text;
   };
-  let structuredBody = '';
-  let structuredDescription = '';
-  for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
-    try {
-      const value = JSON.parse(script.textContent || '');
-      structuredBody ||= findArticleBody(value);
-      structuredDescription ||= findStructuredDescription(value);
-      if (structuredBody && structuredDescription) break;
-    } catch {
-      // Se usa el cuerpo visible si un sitio publica JSON-LD inválido.
+  const titleFromCaption = value => {
+    if (typeof value !== 'string') return '';
+    let text = value.replace(/\r\n?/g, '\n').trim().split('\n')[0].trim().replace(/\s+/gu, ' ');
+    const tail = text.match(/\s+(?:#\S+|https?:\/\/\S+)(?:\s+(?:#\S+|https?:\/\/\S+))*\s*$/iu);
+    if (tail && Array.from(text.slice(0, tail.index)).length >= 12 &&
+        (tail[0].trim().split(' ').length > 1 || tail[0].includes('://'))) text = text.slice(0, tail.index);
+    const characters = Array.from(text);
+    if (characters.length <= 80) return text;
+    let prefix = characters.slice(0, 79).join('');
+    const boundary = prefix.lastIndexOf(' ');
+    if (boundary > 0 && Array.from(prefix.slice(0, boundary)).length >= 40) prefix = prefix.slice(0, boundary);
+    return prefix.trimEnd() + '…';
+  };
+  const parseJson = value => {
+    if (typeof value !== 'string' || value.length > 2 * 1024 * 1024) return null;
+    let depth = 0, quoted = false, escaped = false;
+    for (const character of value) {
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === '"') quoted = false;
+      } else if (character === '"') quoted = true;
+      else if (character === '{' || character === '[') { if (++depth > 64) return null; }
+      else if (character === '}' || character === ']') { if (--depth < 0) return null; }
+    }
+    if (quoted || depth !== 0) return null;
+    try { return JSON.parse(value); } catch { return null; }
+  };
+  const pageUrl = new URL(location.href);
+  const tikTokId = /(^|\.)tiktok\.com$/i.test(pageUrl.hostname.replace(/\.$/, '')) &&
+    /^https?:$/.test(pageUrl.protocol) && !pageUrl.username && !pageUrl.password
+    ? pageUrl.pathname.match(/^\/(?:@[^/]+\/(?:video|photo)|share\/video|embed(?:\/v2)?|player\/v1|v)\/([0-9]{10,25})(?:\.html)?\/?$/)?.[1] : null;
+  let directPost = null;
+  if (tikTokId) {
+    for (const script of document.scripts) {
+      const scriptId = script.id || script.getAttribute('id');
+      if (!['__UNIVERSAL_DATA_FOR_REHYDRATION__', 'SIGI_STATE', 'sigi-persisted-data'].includes(scriptId)) continue;
+      const state = parseJson(script.textContent || '');
+      const posts = scriptId === '__UNIVERSAL_DATA_FOR_REHYDRATION__'
+        ? [state?.__DEFAULT_SCOPE__?.['webapp.video-detail']?.itemInfo?.itemStruct,
+          state?.__DEFAULT_SCOPE__?.['webapp.reflow.video.detail']?.itemInfo?.itemStruct]
+        : [state?.ItemModule?.[tikTokId]];
+      for (const post of posts) {
+        if (post?.id !== tikTokId || typeof post.desc !== 'string') continue;
+        const author = post.author ?? post.authorInfo;
+        directPost = {
+          caption: captionText(post.desc),
+          title: limitField(post.title) || limitField(post.imagePost?.title),
+          author: limitField(typeof author === 'string' ? author :
+            typeof author?.nickname === 'string' ? author.nickname : author?.uniqueId),
+        };
+        break;
+      }
+      if (directPost) break;
+    }
+    if (!directPost) {
+      const visible = Array.from(document.querySelectorAll('[data-e2e="browse-video-desc"], [data-e2e="video-desc"], [data-e2e="photo-desc"]'))
+        .filter(node => node.getClientRects().length && !node.closest('nav, aside, footer, dialog'));
+      if (visible.length === 1) directPost = { caption: captionText(visible[0].innerText || visible[0].textContent), author: '' };
     }
   }
+  const normalizeUrl = value => {
+    const url = new URL(value, pageUrl);
+    url.hash = '';
+    url.pathname = url.pathname.replace(/\/+$/, '') || '/';
+    url.search = url.search.slice(1).split('&').filter(pair => {
+      const name = decodeURIComponent(pair.split('=')[0].replace(/\+/g, ' ')).toLowerCase();
+      return pair && !name.startsWith('utm_') && !['fbclid', 'gclid', 'mc_cid', 'mc_eid'].includes(name);
+    }).join('&');
+    return url.href;
+  };
+  const matchesContent = identity => {
+    if (!identity) return true;
+    try {
+      const url = new URL(identity, pageUrl);
+      return /^https?:$/.test(url.protocol) && normalizeUrl(url) === normalizeUrl(pageUrl);
+    } catch { return false; }
+  };
+  const articleTypes = new Set(['article', 'newsarticle', 'blogposting', 'techarticle', 'report', 'scholarlyarticle']);
+  const captionTypes = new Set(['videoobject', 'audioobject', 'podcastepisode', 'imageobject', 'photograph', 'socialmediaposting', 'discussionforumposting']);
+  const articleBodies = [], descriptions = [], titles = [];
+  const visitStructured = value => {
+    if (!value || typeof value !== 'object') return;
+    if (!Array.isArray(value)) {
+      const types = (Array.isArray(value['@type']) ? value['@type'] : [value['@type']])
+        .filter(type => typeof type === 'string').map(type => type.replace(/^https?:\/\/schema\.org\//, '').toLowerCase());
+      const isCaption = types.some(type => captionTypes.has(type));
+      const isArticle = types.some(type => articleTypes.has(type));
+      const identity = ['mainEntityOfPage', 'url', '@id'].map(key => typeof value[key] === 'string' ? value[key] : value[key]?.['@id'])
+        .find(candidate => typeof candidate === 'string' && candidate.trim());
+      if ((isCaption || isArticle) && matchesContent(identity)) {
+        const heading = ['headline', 'name'].map(key => value[key]).find(candidate => typeof candidate === 'string' && candidate.trim());
+        if (heading) titles.push({ text: normalize(heading), hasIdentity: !!identity });
+        if (isArticle && !isCaption && typeof value.articleBody === 'string' && value.articleBody.trim()) {
+          articleBodies.push({ text: value.articleBody, hasIdentity: !!identity });
+        }
+        const keys = isCaption ? ['caption', 'description', 'text', 'articleBody'] : ['description'];
+        const text = keys.map(key => value[key]).find(candidate => typeof candidate === 'string' && candidate.trim());
+        if (text) descriptions.push({ text, isCaption, hasIdentity: !!identity });
+      }
+    }
+    for (const child of Array.isArray(value) ? value : Object.values(value)) visitStructured(child);
+  };
+  for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+    visitStructured(parseJson(script.textContent || ''));
+  }
+  const selectContent = candidates => {
+    if (!candidates.length) return null;
+    const hasIdentity = candidates.some(value => value.hasIdentity);
+    const best = candidates.filter(value => value.hasIdentity === hasIdentity);
+    return new Set(best.map(value => value.text)).size === 1 ? best[0] : null;
+  };
+  const structuredBody = selectContent(articleBodies)?.text || '';
+  const structuredDescription = selectContent(descriptions);
   let videoDescription = '';
   if (/(^|\.)youtube\.com$|^youtu\.be$/i.test(location.hostname) &&
       (/^\/watch$/i.test(location.pathname) || /^\/(?:shorts|live)\//i.test(location.pathname) ||
@@ -145,16 +231,18 @@ function capturePage(includeRendered) {
     })
     .sort((left, right) => right.score - left.score)[0]?.node;
   const root = semanticRoot || document.body;
-  const directDescription = structuredBody || videoDescription || structuredDescription;
-  const paragraphs = directDescription ? [directDescription] : usefulParagraphs(root);
-  if (!directDescription && semanticRoot && !paragraphs.some(value => value.length >= 60)) {
+  const paragraphs = usefulParagraphs(root);
+  if (semanticRoot && !paragraphs.some(value => value.length >= 60)) {
     paragraphs.push(fallbackText(semanticRoot));
   }
   const result = {
-    originTitle: meta('meta[property="og:title"]') || meta('meta[name="twitter:title"]') || document.title,
-    siteName: meta('meta[property="og:site_name"]') || meta('meta[name="application-name"]') || location.hostname,
-    author: meta('meta[name="author"]') || meta('meta[property="article:author"]'),
-    description: summarize(paragraphs),
+    originTitle: limitField(directPost?.title || titleFromCaption(directPost?.caption) || selectContent(titles)?.text || meta('meta[property="og:title"]') || meta('meta[name="twitter:title"]') || document.title),
+    siteName: directPost ? 'TikTok' : meta('meta[property="og:site_name"]') || meta('meta[name="application-name"]') || location.hostname,
+    author: directPost?.author || meta('meta[name="author"]') || meta('meta[property="article:author"]'),
+    description: directPost ? directPost.caption : summarize(structuredBody ? [structuredBody] : []) ||
+      summarize(videoDescription ? [videoDescription] : []) ||
+      (structuredDescription?.isCaption ? captionText(structuredDescription.text) : summarize(structuredDescription ? [structuredDescription.text] : [])) ||
+      (tikTokId ? '' : summarize(paragraphs)),
   };
   if (!includeRendered) return result;
   const text = (root?.innerText || document.body?.innerText || '')

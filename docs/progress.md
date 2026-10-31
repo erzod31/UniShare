@@ -1,5 +1,55 @@
 # Registro de progreso
 
+## 2026-10-28 — DG-0018, actualización propia de los clientes
+
+- Regla permanente y plan local guardados antes de implementar; se preservan los cambios DG-0011.
+- Canal real GitHub `erzod31/UniShare`: última publicación 0.6.16, anterior al candidato 0.6.24.
+- Núcleos y UI bilingüe Windows/Android: consulta, versión, descarga cancelable y acotada, SHA-256,
+  identidad/versión y firmas aplicables, confirmación y adaptadores del instalador nativo.
+- Windows mantiene AppId/perfil y reapertura tras éxito; APK mantiene packageName/certificado/código
+  creciente. El origen histórico Windows sin Authenticode se declara y un cliente firmado exige su
+  certificado. No hay cambios de datos ni protocolo de sincronización.
+- Extensión: servicio de actualización nativo del navegador, con confirmación y sin equiparar recarga
+  a descarga de paquete. La distribución ZIP carece de publicación/identidad de tienda: sigue pendiente.
+- 222 .NET, 130 JVM y 51 JS pasan; WPF y contratos de instalación se prueban con adaptadores falsos.
+  Canal y descarga/verificación de un instalador público reales, pero con versión de partida simulada
+  y lanzador falso. No se ejecuta ningún instalador/actualizador/desinstalador real ni se publica.
+- La primera instalación del nuevo actualizador es manual desde 0.6.23 o anteriores. Límites y
+  reproducción: `APP_UPDATES.md`, ADR 0034 y `in-app-updates-DG-0018.json`.
+- Primera ronda de candidatos 0.6.24 desde `73e44d8`, conservando los ocho paquetes 0.6.23.
+  Inno, 456 archivos del payload, arranque aislado, identidad/firma del APK, CRC y copias verificadas.
+  Ningún instalador real se ejecutó; la entrega incluye explícitamente las dependencias externas.
+- La revisión final distingue un bloque Authenticode corrupto de la ausencia real de firma, incluso
+  si WinVerifyTrust informa NOSIGNATURE. Prueba nativa sobre PE modificado sin ejecutarlo; se regeneran
+  los candidatos afectados y el informe conserva revisiones, pruebas y hashes definitivos.
+
+## 2026-10-26 - Traducción automática integrada 0.6.23
+
+- Petición: traducir automáticamente las descripciones al idioma elegido en Ajustes, dentro de la app.
+- Revisados el traductor en navegador, lectura/edición, preferencias y empaquetado de ambas plataformas.
+- F-13 actualizado y ADR 0033 registra hitos, conservación y validación. Motor local compartido
+  Bergamot/Marian, modelos por necesidad verificados, caché por texto/idioma/versión y original accesible.
+- Windows y Android traducen dentro de la biblioteca y lectura al idioma de Ajustes. El editor conserva
+  el original; preferencia persistente para desactivar. Se retira el lanzador Google sin uso.
+- Suites: 189/189 .NET, 122/122 JVM, 47/47 Node; Release/formato y Lint (0 errores, un aviso de patch
+  Gradle anterior). Inferencia Windows: seis casos online/offline, vista original/preferencia y cierre
+  durante descarga. Edge conserva 35 frases y el final de una descripción de 3169 caracteres.
+- Android API 37: 2/2 de traducción real/integración/idioma, 22/22 normal y 22/22 al 200 %. Se deshabilitó
+  temporalmente WebView sólo en el emulador propio: editar/original/preferencias/reinicio pasan 1/1.
+  El proveedor fue restaurado. No se ha instalado aún en un teléfono físico.
+- La prueba de idioma detectó K-064: idioma global no observable en Compose. Corregido y recorrido
+  español/inglés con navegación y descripción verificado. Los hashes de assets conservan LF en Git.
+- Producto final `66c0195e9f1ffd3c9d6212bdee30672a897b0a10`, con la confirmación de restauración inglesa
+  completada al comprobar el APK R8 real. Paquetes coordinados 0.6.23 generados desde código limpio.
+- Instalado PC: salida 0, 25 elementos, seis tablas y emparejamiento idénticos; backups inspeccionados,
+  EXE igual al paquete y agente autenticado activo. Lectura real sin alterar originales; se aprovisionan
+  cinco archivos públicos de modelos inglés/español. No se registran títulos ni descripciones privadas.
+- APK release: misma firma histórica, actualización/cold start, restauración SAF y traducción/original
+  dentro de la app realmente comprobadas en API 37. E2E final 1/1 conserva metadatos, blobs y ACK.
+- Fuente pública extraída fuera de Git: restore bloqueado, 189 .NET y 47 Node. Escáner público corrige
+  un falso positivo del HOME virtual Emscripten sólo por hash upstream exacto; fixture modificado se
+  rechaza. No se debilitan las comprobaciones de credenciales ni de rutas personales.
+
 ## 2026-09-25 - Prioridad funcional
 
 - Registrada la decisión del usuario de terminar el producto antes del endurecimiento de seguridad.
@@ -861,3 +911,206 @@ restauración Android. La captura y persistencia del enlace sí están verificad
   amplió el margen a 60 segundos; la misma orden CI volvió a pasar localmente 105/105 antes del push.
 - El disparador de Actions se acotó a `main` y pull requests para que etiquetar exactamente el mismo
   commit publicado no ejecute una segunda matriz idéntica.
+
+## 2026-10-15 - Auditoría integral, conservación y toolchain 0.6.17
+
+- Revisados nuevamente dominio, persistencia/migraciones, CAS, backup, sincronización causal, Windows,
+  Android, extensión, Obsidian, CI, dependencias, empaquetado, privacidad pública y documentación. La
+  investigación se contrastó con documentación oficial de .NET, Android, AndroidX, Kotlin y Gradle.
+- La revisión de sincronización deja de inferir cambios por tamaño/fecha del DB/WAL. El esquema Windows
+  v5 mantiene `content_revision` dentro de las mismas transacciones que items, assets y organización;
+  un checkpoint WAL ya no genera una sincronización falsa.
+- Windows y Android calculan SHA-256 antes de anunciar un blob. Una corrupción con la misma longitud se
+  considera ausente y puede repararse desde la réplica correcta; una desaparición concurrente ya no
+  aborta todo el intercambio. Android valida además identidad, cursores y ACK antes de importar.
+- El backup Windows lee todas las tablas desde una sola instantánea SQLite. Obsidian repara copias
+  dañadas, elimina sólo notas gestionadas inequívocas y conserva cualquier adjunto aún citado desde una
+  nota personal.
+- Android adopta API 37, permiso contextual de red local, AGP 9.4.1, Gradle 9.8.1 con hashes oficiales,
+  Kotlin incorporado, Compose BOM 2026.09.00 y Core 1.19.1. .NET queda en SDK 10.0.402 y sus paquetes
+  directos estables actuales; NuGet informa cero vulnerables, cero obsoletos y cero actualizaciones
+  directas pendientes.
+- El empaquetador Windows ahora selecciona sólo un host que resuelva exactamente `global.json` y marca
+  `.dirty` cuando el árbol no coincide con `HEAD`. Esto corrigió un fallo real causado por coexistencia
+  de SDK 10.0.401 y 10.0.402. El EXE final pasó cierre limpio en 109 ms.
+- Validación final: restore normal/`win-x64` bloqueados, formato limpio, Release con 0 advertencias/0
+  errores, 109/109 pruebas .NET, 71/71 Android, Android Lint sin hallazgos, R8/APK, extensión MV3 y cinco
+  scripts PowerShell válidos. El benchmark de 100 000 items obtuvo mediana 62,0611 ms y p95 84,3864 ms.
+- Se regeneraron Setup/ZIP Windows, APK/ZIP Android y paquetes Chromium/Edge 0.6.17; todos los ZIP se
+  leyeron por completo, sin rutas inseguras ni duplicadas. No se generó fuente pública porque el script
+  exige correctamente un árbol confirmado y limpio; tampoco se instaló ni publicó externamente en esta
+  auditoría.
+- La limpieza final retiró 26 directorios regenerables y los nueve paquetes 0.6.16 obsoletos. `artifacts`
+  conserva sólo los siete paquetes 0.6.17 y su manifiesto; sus siete SHA-256 se recalcularon y coinciden.
+- La revisión pública final cubrió 247 archivos versionables sin detectar rutas personales, usuario de
+  GitHub, endpoint Tailscale real, claves privadas ni tokens conocidos. Los 56 Markdown conservan enlaces
+  locales válidos y la plantilla de errores muestra la versión actual.
+
+## 2026-10-16 - Cierre de límites verificables 0.6.18
+
+- Objetivo: comprobar el permiso Android 17 en un emulador aislado, persistencia/migraciones Android,
+  importación SAF/compartir, backup y recuperación tras una transferencia interrumpida; revisar los
+  recorridos Windows y preparar firma de distribución sin cambiar las claves de las instalaciones.
+- Aceptación: pruebas instrumentadas reproducibles sin datos del usuario; estados correctos con permiso
+  concedido/denegado; ninguna confirmación causal ni pérdida de datos después de un corte; paquetes
+  coordinados reconstruidos y fuente pública inspeccionada desde un árbol confirmado.
+- Certificados de producción, publicación en tiendas, escucha física de TalkBack/Narrador y transporte
+  celular físico requieren recursos externos. El cifrado y la rotación continúan en la fase de seguridad
+  aplazada; este hito conserva esa decisión de producto.
+- Se reprodujeron dos fallos de reparación que faltaban en 0.6.17: rechazo del blob dañado al sustituirlo
+  y exclusión del agregado sin operaciones nuevas. Las regresiones fallaron primero y pasan tras la
+  corrección. Windows conserva el original con `File.Replace`; Android usa promoción SHA-256/longitud,
+  copia de recuperación y `ATOMIC_MOVE`. Ambos amplían el delta por los hashes solicitados.
+- Se corrigieron borrador/filtros/URL de SAF perdidos al recrear actividad, hoja parcialmente oculta,
+  opciones con texto ampliado, contraste de barras y una traducción faltante. Android 17 pasa 17/17
+  escenarios instrumentados en tamaño normal y 200 %, con denegación/concesión real del permiso.
+- La prueba contra el nodo Windows real por `adb reverse` pasó envío, recepción, cursores y reparación
+  sin nuevas operaciones. Su backup Android fue inspeccionado por Windows: 2 items, 2 assets, 2 blobs,
+  1 etiqueta y 1 colección. Las 112 pruebas .NET pasan y Release no tiene errores ni advertencias.
+- La firma Android APK/AAB de producción pasó con una clave temporal de QA que se eliminó al terminar.
+  Sin credenciales falla de forma explícita. La firma Windows rechaza la ausencia de certificado y
+  prepara EXE/Setup/desinstalador; la prueba positiva sigue bloqueada por el certificado definitivo.
+- Se incorporan inventarios runtime y textos originales de licencia al empaquetado. La inspección visual
+  Windows nueva no pudo completarse por el error de asociación del controlador de ventanas, después de
+  verificar PID/ruta/argumentos/handle; no se ha sustituido esa evidencia por una inferencia.
+- El instalador final terminó con código 0 y el EXE instalado declara 0.6.18.0 desde
+  `dd34bc4111a2454b353bdaa22ee690ecb776195c`, sin `.dirty`. Antes se creó y verificó un backup del perfil;
+  después se comprobaron 8 elementos y seis tablas de metadatos idénticas. El nodo real quedó activo
+  en segundo plano. El APK release pasó actualización 0.6.17→0.6.18, preservó el enlace sintético,
+  mantuvo la fecha de primera instalación y conserva exactamente el certificado lateral anterior.
+- La captura de la ventana Windows instalada volvió a intentarse con perfil QA confirmado, pero el
+  controlador agotó la autorización de la aplicación. El recorrido visual nuevo sigue NO VERIFICADO.
+- Los ZIP finales se recorrieron por completo: Windows 430 entradas, Android 2, Chromium/Edge 14 y
+  expediente Edge 5; sin duplicados ni rutas inseguras. Windows incluye avisos de 10 paquetes/frameworks;
+  el APK contiene 58 archivos de licencia y un inventario de 73 dependencias runtime.
+- La fuente pública también rechaza CAS, staging, recovery y backups versionados por accidente; un
+  repositorio sintético confirmó el rechazo. Los perfiles/datos siguen fuera de Git y de la entrega.
+- Desde una extracción pública sin `.git` ni archivos ignorados se recompilaron los dos clientes:
+  .NET Release sin advertencias/errores, 112/112 pruebas y smoke con base SQLite nueva; Android
+  71/71 JVM, Lint y APK/R8 correctos. Los informes se conservan con rutas personales saneadas.
+- El empaquetador fuente ahora valida un temporal antes de sustituir el ZIP público. Las regresiones
+  `build` y `blobs` probaron rechazo sin perder la copia válida ni dejar el temporal privado. También
+  se bloquean cachés y directorios generados accidentalmente versionados.
+- Limpieza final completada: compilaciones regenerables, perfiles/emulador QA y extracción independiente
+  retirados; paquetes 0.6.17 enviados a la Papelera. Se conservan evidencia y paquetes 0.6.18; el agente
+  instalado continúa activo y no se han borrado datos ni copias de seguridad personales. Sin push externo.
+
+## 2026-10-16 - Conservación y fuente portable 0.6.19
+
+- Cerrar los riesgos comprobables de descarga incompleta Android y edición externa de notas Obsidian,
+  sin reabrir el hito de seguridad ni depender de certificados o dispositivos físicos.
+- Aceptación: un cuerpo más corto que su longitud anunciada no produce un asset disponible y limpia
+  staging; respuestas sin longitud y comprimidas válidas siguen admitidas. Obsidian no sobrescribe
+  destinos ajenos, conserva contenido fuera del bloque gestionado y no elimina notas con texto personal.
+- Validación: regresiones antes/después, suite .NET, Android JVM/Lint, pruebas instrumentadas API 37,
+  empaquetado coordinado y hashes finales. Sin datos reales en fixtures.
+- El intento visual Obsidian fue bloqueado antes de abrirlo porque podría mostrar el vault habitual.
+  No se cambia la configuración del usuario ni se sortea el control; esta prueba seguirá NO VERIFICADA
+  salvo autorización explícita para seleccionar después el vault aislado.
+- Se reprodujo además que el ZIP fuente público no podía generar el instalador Windows al carecer
+  de `.git`. Se incorpora una revisión de procedencia sustituida por `git archive`; la aceptación
+  exige compilar el instalador desde una extracción externa a cualquier repositorio, sin inventar un commit.
+- Resultado: 125/125 .NET, Release sin advertencias/errores, formato verificado; 71/71 Android JVM,
+  Lint sin hallazgos, R8 y 20/20 instrumentadas en texto normal y 200 %. Las siete regresiones Obsidian
+  y el stream Android truncado fallaron antes de corregirse; gzip HTTP real sigue pasando.
+- La fuente sin `.git` pasó restore bloqueado, build, las 125 pruebas y generación real del instalador;
+  cierre limpio en 76 ms y procedencia `4f3193b0b7d832b914022c75706f64e7522b6991.archive`. El paquete
+  principal se generó limpio desde ese commit de producto y cerró en 79 ms.
+- E2E 0.6.19 contra nodo Windows real en perfil aislado: ambos sentidos, archivos, ACK y reparación
+  sin metadatos nuevos. El backup Android fue inspeccionado por Windows: 2 items, 2 assets, 2 blobs;
+  el backup Windows confirmó también título, autor y resumen editados desde Android.
+- Setup 0.6.19 instalado con salida 0; 8 elementos y seis tablas idénticas, emparejamiento intacto y
+  agente activo. Se conservó un backup previo inspeccionado en el perfil. El APK release se instaló y
+  arrancó en frío en API 37: versión 0.6.19/código 32 y certificado histórico idéntico.
+- Limpieza terminada: compilaciones/cachés regenerables, emulador y perfiles QA y extracción temporal
+  retirados; nueve paquetes/manifiesto 0.6.18 recuperables en la Papelera. Registros saneados y ocho
+  paquetes actuales conservados. Ocho PowerShell y los enlaces locales de 60 Markdown son válidos.
+  El EXE instalado coincide con el ZIP y el nodo autenticado sigue activo; sin push externo.
+
+## 2026-10-26 - Descripciones de publicaciones y TikTok 0.6.20
+
+- Diagnóstico: no existe adaptador TikTok y el filtro de prosa descarta pies cortos, hashtags o texto
+  igual al título. Android interpreta JSON-LD mediante regex y puede mezclar nodos distintos.
+- Aceptación: extraer el pie literal del post exacto, con autor y Unicode; soportar datos TikTok
+  actuales/legacy y enlaces redirigidos; no aceptar descripciones de recomendaciones, perfiles o menús.
+  Los campos de publicaciones multimedia no pasan por el filtro de artículos. Las notas manuales se
+  preservan y las descripciones vacías anteriores se pueden enriquecer automáticamente.
+- Estrategia: metadatos estructurados con árbol JSON real, identidad de contenido y alternativa pública
+  del mismo proveedor cuando falte la descripción; sin scraper externo, claves, sesión ni resolver
+  desafíos de acceso. oEmbed no será una dependencia obligatoria: el ejemplo oficial devuelve 429 y
+  TikTok documenta la migración del embed antiguo al Player.
+- Validación: fixtures sintéticos comunes Windows/Android/Chromium, regresiones antes/después, HTTP
+  simulado de redirección/fallback, contenido público real, suites/lint/build y paquetes coordinados.
+- La comprobación pública Android encontró una segunda causa: su agente recibe
+  `webapp.reflow.video.detail`, no `webapp.video-detail`. El test de Internet falló con descripción nula
+  antes de corregirlo; las tres implementaciones ya contemplan ambas rutas y verifican el ID exacto.
+- Contratos finales: 162/162 .NET, 102/102 JVM, 27/27 Node y 28/28 en Edge real. Android API 37 pasa
+  21/21 normal y 21/21 al 200 % con los 26 fixtures JSON nativos. Windows, Android y Edge obtienen el
+  mismo SHA-256 del pie público; Android de Internet 1/1. Lint: 0 errores y un aviso de patch Gradle.
+- Investigación, causas, límites y reproducción en `docs/audit-2026-10-26.md` y ADR 0030.
+- Producto confirmado en `f624f45facbae8d738617f5aeb17797ea77324b4`; paquetes coordinados 0.6.20.
+  Setup instalado con salida 0, seis tablas y emparejamiento idénticos antes de enriquecer. El agente
+  autenticado sigue activo. APK release instalado y arrancado en frío en API 37, código 33 y misma firma.
+- La migración v4 real recuperó los 16 pies TikTok vacíos de la biblioteca existente. Se conservan
+  los 25 UUID/URLs, las 6 descripciones previas no vacías y las otras cinco tablas portables. Hay
+  backups inspeccionados anteriores y uno posterior al enriquecimiento; sin contenido personal en logs.
+- E2E 1/1 entre Android y Windows real conserva el pie con emojis/enlaces y autor, además de archivos,
+  confirmación causal y reparación. El backup Android contiene 2 items, 2 assets y 2 blobs verificados.
+- La fuente extraída fuera de Git pasa restore bloqueado, las 162 pruebas .NET y 27 Node. Formato,
+  compilación Release sin advertencias/errores, ocho PowerShell y enlaces locales Markdown correctos.
+
+## 2026-10-26 - Títulos y traducción voluntaria 0.6.21
+
+- Peticiones adicionales: usar títulos de origen como títulos del elemento y añadir traducción para
+  las descripciones, conservando la corrección de los enlaces ya guardados.
+- Diagnóstico: los 16 TikTok anteriores tenían una etiqueta genérica del proveedor en el título y la
+  reconsulta sólo reemplazaba el dominio provisional. Se añade comparación con el título publicado
+  para migrar esa etiqueta sin sustituir títulos personalizados; v6 de enriquecimiento, sin DDL.
+- Aceptación: título explícito y `headline`/`name` del objeto correcto en su campo; descripción literal
+  separada. Traducción opcional en navegador con confirmación, idioma de interfaz y original intacto.
+  Cancelar no abre proveedor. No se añaden SDKs, claves, modelos ni un servicio obligatorio.
+- Validación: ampliar los fixtures de títulos, pruebas de codificación y textos largos, UI Android
+  bilingüe con interceptor de navegador y texto al 200 %, proveedor real con texto sintético, suites,
+  paquetes coordinados e instalación/actualización verificadas.
+- Suites: 178/178 .NET, 112/112 JVM, 35/35 Node y proveedor Google real con texto sintético. Las
+  22 pruebas instrumentadas normales y al 200 % incluyen confirmar/cancelar traducción en ambos
+  idiomas sin enviar el texto de prueba desde la app. Se repiten tras el ajuste final de Unicode.
+- La verificación de instalación detectó el placeholder real `TikTok - Make Your Day` en los 16
+  títulos anteriores; v5 no lo reconocía. Se añade un contrato específico y la migración v6.
+- Producto final: `7ba5989e17ec264d002a25e758f0332766cf0a21`. Validación final: 179/179 .NET,
+  113/113 JVM, 36/36 Node y 37/37 contratos en Edge; 22/22 instrumentadas normal y al 200 %,
+  además de E2E 1/1 con el ejecutable final. Fuente independiente: 179 .NET y 36 Node correctas.
+- Instalación final PC con salida 0, seis tablas y emparejamiento idénticos. Migración v6 real:
+  16 títulos genéricos corregidos; 25 items, todas las descripciones, URLs/UUID y las otras cinco tablas
+  portables conservados. Backup posterior inspeccionado. APK final instalado/arrancado en API 37,
+  versión 0.6.21/código 34 y firma histórica sin cambios.
+- Traducción Google comprobada con texto sintético en Edge, sin cuenta. La app exige confirmación y
+  no modifica el original; los textos largos se copian completos para pegar. No es traducción offline.
+- El ejemplo público TikTok respondió después `Access Denied` en el navegador y sin pie en Windows;
+  la prueba de Internet Android siguió pasando. Una URL existente Windows se comprobó sin modificarla
+  y la migración real corrigió los 16 títulos. Se conserva la evidencia de acceso denegado, sin sortearlo.
+
+## 2026-10-26 - Encabezados TikTok breves 0.6.22
+
+- Corrección solicitada tras probar 0.6.21: los 16 títulos derivados seguían siendo largos; llegaban
+  a 500 caracteres. Coincidían exactamente con la primera línea usada por la alternativa anterior.
+- Aceptación: prioridad del título específico cuando exista; alternativa del pie de hasta 80 caracteres
+  Unicode, corte por palabra, sin modificar la descripción. Acortar sólo títulos reconocidos como
+  generados por la alternativa anterior; conservar títulos personalizados.
+- Misma regla en Windows, Android y Chromium, con fixtures de texto largo, tags/URLs, hashtag temático,
+  Unicode y preservación de títulos manuales. Migración v7, sin DDL ni cambio de protocolo.
+- Windows relee el registro tras la espera HTTP para combinar con sus valores actuales y evitar usar
+  la instantánea anterior a una edición/retirada del usuario.
+- Producto: `446f9872d259e98aef35751cb1248f3b01a4900b`. Pasan 184/184 .NET, 118/118 JVM,
+  41/41 Node y 42/42 contratos Edge. Release/formato y Android Lint/R8 correctos, con el aviso Gradle
+  disponible anterior. Fuente independiente fuera de Git: restore bloqueado, 184 .NET y 41 Node.
+- API 37: 22/22 normal y 22/22 al 200 %. Una primera corrida tuvo cuatro fallos UI por un diálogo
+  `System UI isn't responding`; XML/captura lo identificaron. Se reinició el emulador aislado y se
+  repitió la suite completa, sin quitar pruebas. E2E final 1/1 contra el ejecutable publicado.
+- Setup 0.6.22 instalado, salida 0, seis tablas y emparejamiento idénticos. La migración v7 real acortó
+  los 16 títulos: ninguno supera 80 caracteres, máximo observado 79. Se conservan los 25 items, todas
+  las descripciones, las URLs/identidades, los demás títulos y las cinco tablas restantes. Backup
+  posterior inspeccionado. APK release actualizado/arrancado en API 37, código 35 y firma histórica.
+- Limpieza realizada: 80 entradas de compilación, QA, cachés locales y paquetes anteriores retiradas
+  del proyecto a un archivo recuperable fuera del repositorio. Quedan ocho paquetes actuales, informes
+  saneados y un TRX final por proyecto; no se han tocado la biblioteca ni los backups del usuario.

@@ -1,11 +1,12 @@
-# Instalación de UniShare 0.6.16
+# Instalación de UniShare 0.6.24 (candidato sin publicar)
 
-Descarga los paquetes desde **Releases** en GitHub. El archivo **Source code** sirve para desarrollar,
+El candidato 0.6.24 es una entrega local; el canal GitHub todavía publica 0.6.16. Tras publicar una
+versión, sus paquetes estarán en **Releases**. El archivo **Source code** sirve para desarrollar,
 pero no contiene una aplicación instalada. Verifica el SHA-256 publicado antes de ejecutar un binario.
 
 ## Windows
 
-1. Ejecuta `UniShare-Windows-Setup-0.6.16.exe`. Elige español o inglés en el asistente. Es un instalador x64 autocontenido por usuario: no pide
+1. Ejecuta `UniShare-Windows-Setup-0.6.24.exe`. Elige español o inglés en el asistente. Es un instalador x64 autocontenido por usuario: no pide
    permisos de administrador ni requiere instalar .NET por separado.
 2. Si Windows muestra SmartScreen, comprueba primero el SHA-256 publicado. El binario aún no tiene un
    certificado comercial; usa **Más información > Ejecutar de todas formas** sólo si el hash coincide.
@@ -21,20 +22,33 @@ pero no contiene una aplicación instalada. Verifica el SHA-256 publicado antes 
 
 El instalador incluye desinstalación desde **Aplicaciones instaladas** y conserva deliberadamente la
 biblioteca personal al desinstalar. Como alternativa portátil, extrae por completo
-`UniShare-Windows-0.6.16.zip` y ejecuta `UniShare.Desktop.exe`.
+`UniShare-Windows-0.6.24.zip` y ejecuta `UniShare.Desktop.exe`.
+
+Desde 0.6.24, **Opciones y herramientas > Actualizar UniShare…** permite buscar, descargar, verificar
+y confirmar una actualización de la app. Android ofrece el mismo flujo en **Ajustes**. 0.6.23 y
+anteriores necesitan primero una instalación manual. [Detalles y límites](APP_UPDATES.md).
+
+La traducción automática necesita [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/).
+Windows 11 y muchos equipos Windows 10 ya lo incluyen; se distribuye aparte y no exige instalar el
+SDK. Los demás flujos siguen funcionando si falta. En **Opciones y herramientas**, el idioma determina
+el destino y **Traducir descripciones automáticamente** activa/desactiva la vista. El primer uso descarga
+los idiomas necesarios; el texto permanece en el dispositivo. Después se puede traducir sin conexión.
 
 ## Android
 
-1. Descarga `UniShare-Android-0.6.16.apk` directamente en el teléfono.
+1. Descarga `UniShare-Android-0.6.24.apk` directamente en el teléfono.
 2. Permite temporalmente la instalación de aplicaciones desconocidas para el navegador o gestor de
    archivos usado, abre el APK y elige **Actualizar**. No desinstales la versión anterior: actualizarla
    conserva los datos locales.
 3. La APK está firmada con clave de depuración y no es una publicación de Play Store.
 
-Por ADB: `adb install -r UniShare-Android-0.6.16.apk`.
+Por ADB: `adb install -r UniShare-Android-0.6.24.apk`.
 
 La pestaña **Ajustes** permite alternar entre tema de sistema, claro y oscuro y escoger **Español** o
 **English**. Ambas elecciones se conservan.
+La traducción automática sigue ese idioma y se puede desactivar en la misma pestaña. Actualiza Android
+System WebView si el motor local no está disponible. La primera traducción de un par necesita Internet
+para descargar modelos; no envía la descripción. **Ver original** y **Modificar resumen** conservan el texto fuente.
 La primera apertura de 0.6.8 vuelve a analizar el cuerpo de los enlaces antiguos y sustituye únicamente
 las descripciones automáticas anteriores por resúmenes extractivos. Las notas editadas se conservan. La
 acción **Actualizar títulos y resúmenes** permite repetirlo.
@@ -42,16 +56,16 @@ acción **Actualizar títulos y resúmenes** permite repetirlo.
 ## Extensión Chrome o Edge
 
 Hasta que Microsoft apruebe la ficha de Edge Add-ons, la instalación de prueba sigue usando el paquete
-`UniShare-Chromium-0.6.16.zip`:
+`UniShare-Chromium-0.6.24.zip`:
 
-1. Extrae `UniShare-Chromium-0.6.16.zip`.
+1. Extrae `UniShare-Chromium-0.6.24.zip`.
 2. Abre la página de extensiones, activa **Modo desarrollador** y elige **Cargar descomprimida**.
 3. Selecciona la carpeta extraída.
 4. Mantén UniShare abierto, abre las opciones de la extensión y copia el puerto y la clave desde
    **Opciones y herramientas > Conectar teléfono** en Windows. Ambos aparecen en el panel
    **Datos de conexión para Edge**, con botones independientes para copiarlos.
 
-El paquete `UniShare-Edge-Store-0.6.16.zip` ya está preparado para Partner Center. En las opciones de la
+El paquete `UniShare-Edge-Store-0.6.24.zip` está preparado para Partner Center. En las opciones de la
 extensión se puede elegir español o inglés. Después de que el
 propietario lo publique y Microsoft lo apruebe, Edge permitirá instalarlo con un clic y lo actualizará
 automáticamente, sin modo desarrollador ni carpeta local.
@@ -66,7 +80,9 @@ automáticamente, sin modo desarrollador ni carpeta local.
    **Opciones y herramientas > Conectar teléfono**: debe aparecer un QR.
 4. Escanea el QR con la cámara del teléfono. Android abrirá UniShare, guardará la conexión y descargará
    la biblioteca. No compartas el QR: contiene la clave privada.
-5. Si la configuración automática falla, la misma ventana muestra el error, el comando de recuperación
+5. En Android 17 o posterior, concede **Red local** cuando UniShare lo solicite. Sin este permiso el
+   sistema impide la conexión directa; las versiones anteriores de Android no lo solicitan.
+6. Si la configuración automática falla, la misma ventana muestra el error, el comando de recuperación
    `tailscale serve --bg --https=8443 47831` y permite guardar manualmente la dirección `.ts.net:8443`.
 
 Si Android indica que no puede resolver el nombre `.ts.net`:
@@ -102,11 +118,11 @@ dotnet test UniShare.slnx -c Release --no-build
 dotnet run --project src/UniShare.Desktop/UniShare.Desktop.csproj
 ```
 
-Android requiere JDK 21 y Android SDK API/Build Tools 36:
+Android requiere JDK 21, Android SDK API 37 y Build Tools 36 o posterior:
 
 ```powershell
 cd platforms/android
-.\gradlew.bat testDebugUnitTest testReleaseUnitTest lintRelease assembleRelease
+.\gradlew.bat test lintRelease assembleRelease
 ```
 
 No necesitas ni debes reutilizar claves, perfiles o bases de datos de otra persona. El primer arranque

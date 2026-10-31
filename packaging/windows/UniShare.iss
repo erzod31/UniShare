@@ -1,5 +1,5 @@
 #ifndef MyAppVersion
-#define MyAppVersion "0.6.16"
+#define MyAppVersion "0.6.24"
 #endif
 
 #ifndef PublishDir
@@ -31,6 +31,10 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 CloseApplications=force
 CloseApplicationsFilter=*.*
 RestartApplications=no
+#ifdef EnableSigning
+SignTool=unishare
+SignedUninstaller=yes
+#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -55,7 +59,19 @@ Name: "{group}\UniShare"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\UniShare"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:OpenUniShare}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:OpenUniShare}"; Flags: nowait postinstall skipifsilent; Check: not IsAppUpdate
+Filename: "{app}\{#MyAppExeName}"; Parameters: "{code:UpdateArguments}"; Flags: nowait skipifsilent; Check: IsAppUpdate
+
+[Code]
+function IsAppUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:UNISHAREUPDATE|0}') = '1';
+end;
+
+function UpdateArguments(Param: String): String;
+begin
+  Result := '--wait-for-previous --profile ' + AddQuotes(ExpandConstant('{param:UNISHAREPROFILE|}'));
+end;
 
 [Registry]
 ; Si el usuario activó «Iniciar con Windows», elimina esa referencia al desinstalar.

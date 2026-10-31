@@ -1,6 +1,6 @@
 # ADR-0021: toolchain estable, paquetes centralizados y Microsoft.Testing.Platform
 
-- Estado: aceptado
+- Estado: parcialmente sustituido por ADR-0027
 - Fecha: 2026-10-05
 
 ## Contexto

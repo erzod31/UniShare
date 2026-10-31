@@ -42,6 +42,30 @@ public sealed class PortableSyncServiceTests
     }
 
     [Fact]
+    public async Task VerifiedPeerPackageRepairsAnExistingCorruptBlobWithoutChangingTheItem()
+    {
+        using var temporary = new TemporaryDirectory();
+        var left = await CreateProfileAsync(temporary.Path, "left");
+        var right = await CreateProfileAsync(temporary.Path, "right");
+        var source = Path.Combine(temporary.Path, "document.txt");
+        await File.WriteAllTextAsync(source, "contenido exacto", TestContext.Current.CancellationToken);
+        var item = await left.Library.CreateAsync(new CreateItemRequest("Conservar", null, source), TestContext.Current.CancellationToken);
+        var package = Path.Combine(temporary.Path, "peer.zip");
+        await left.Backup.ExportAsync(package, TestContext.Current.CancellationToken);
+        await right.Sync.ImportAsync(package, TestContext.Current.CancellationToken);
+        var asset = Assert.Single(await right.Library.GetAssetsAsync(item.Id, TestContext.Current.CancellationToken));
+        var blobStore = new FileBlobStore(right.Root);
+        await File.WriteAllBytesAsync(blobStore.GetAbsolutePath(asset.RelativePath), new byte[asset.ByteLength], TestContext.Current.CancellationToken);
+
+        var result = await right.Sync.ImportAsync(package, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.Conflicts);
+        Assert.Equal(item, Assert.Single(await right.Library.SearchAsync(null, cancellationToken: TestContext.Current.CancellationToken)));
+        Assert.True(await blobStore.VerifyAsync(asset.Sha256, TestContext.Current.CancellationToken));
+        Assert.Single(Directory.EnumerateFiles(Path.Combine(right.Root, "recovery", "corrupt-blobs")));
+    }
+
+    [Fact]
     public async Task UnilateralChangeIsAppliedButConcurrentChangesCreateResolvableConflict()
     {
         using var temporary = new TemporaryDirectory();

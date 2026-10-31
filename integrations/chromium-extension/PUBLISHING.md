@@ -16,8 +16,8 @@ empresa y no es apropiado para usuarios particulares.
 
 1. Registrarse gratuitamente en el programa Microsoft Edge de Partner Center con una cuenta Microsoft.
 2. Publicar `privacy-policy.md` en una URL HTTPS pública y estable.
-3. Extraer `artifacts/UniShare-Edge-Submission-0.6.16.zip`.
-4. Crear un producto de extensión y cargar el `UniShare-Edge-Store-0.6.16.zip` que contiene.
+3. Extraer `artifacts/UniShare-Edge-Submission-0.6.24.zip`.
+4. Crear un producto de extensión y cargar el `UniShare-Edge-Store-0.6.24.zip` que contiene.
 5. Completar la ficha en español con `store-listing-es-ES.md` y cargar `logo-300.png`.
 6. Declarar las prácticas de privacidad conforme al texto preparado, enviar a certificación y esperar la
    aprobación de Microsoft.

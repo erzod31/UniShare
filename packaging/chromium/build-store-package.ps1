@@ -1,8 +1,9 @@
 param(
-    [string]$Version = "0.6.16"
+    [string]$Version = "0.6.24"
 )
 
 $ErrorActionPreference = "Stop"
+if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Version must use X.Y.Z.' }
 
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repositoryRoot = (Resolve-Path (Join-Path $scriptDirectory "..\..")).Path
@@ -28,20 +29,20 @@ if (-not $packageRoot.StartsWith($artifactRoot + [IO.Path]::DirectorySeparatorCh
 }
 
 if (Test-Path -LiteralPath $packageRoot) {
-    Remove-Item -LiteralPath $packageRoot -Recurse -Force
+    Move-Item -LiteralPath $packageRoot -Destination ($packageRoot + '.previous-' + [Guid]::NewGuid().ToString('N'))
 }
 if (Test-Path -LiteralPath $destination) {
-    Remove-Item -LiteralPath $destination -Force
+    Move-Item -LiteralPath $destination -Destination ($destination + '.previous-' + [Guid]::NewGuid().ToString('N'))
 }
 if (Test-Path -LiteralPath $submissionRoot) {
-    Remove-Item -LiteralPath $submissionRoot -Recurse -Force
+    Move-Item -LiteralPath $submissionRoot -Destination ($submissionRoot + '.previous-' + [Guid]::NewGuid().ToString('N'))
 }
 if (Test-Path -LiteralPath $submissionDestination) {
-    Remove-Item -LiteralPath $submissionDestination -Force
+    Move-Item -LiteralPath $submissionDestination -Destination ($submissionDestination + '.previous-' + [Guid]::NewGuid().ToString('N'))
 }
 
 New-Item -ItemType Directory -Path (Join-Path $packageRoot "icons") -Force | Out-Null
-foreach ($file in @("manifest.json", "background.js", "i18n.js", "popup.html", "popup.js", "options.html", "options.js", "style.css")) {
+foreach ($file in @("manifest.json", "background.js", "i18n.js", "updates.js", "popup.html", "popup.js", "options.html", "options.js", "style.css")) {
     Copy-Item -LiteralPath (Join-Path $sourceRoot $file) -Destination $packageRoot
 }
 Copy-Item -Path (Join-Path $sourceRoot "icons\*.png") -Destination (Join-Path $packageRoot "icons")

@@ -1,26 +1,110 @@
 # Matriz de verificación
 
-Fecha de última actualización: 2026-10-06.
+Fecha de última actualización: 2026-10-28.
+
+## DG-0018 — actualizador propio 0.6.24 (candidato sin publicar)
+
+- .NET Release: 222/222 pruebas, 0 omitidas; incluye UI WPF en STA con transporte y lanzador falsos,
+  versiones, red, hash/tamaño, truncación/exceso, cancelación, paquete/firma/publicador incorrectos,
+  confirmación, revalidación contra cambios posteriores y argumentos de cierre/reapertura.
+- Se inspecciona un PE real modificado con un certificado Authenticode corrupto, sin ejecutarlo.
+  Un bloque de certificado presente no cae en la política histórica sin firma aunque WinVerifyTrust
+  informe NOSIGNATURE. Los instaladores históricos verdaderamente sin firma tienen tabla vacía.
+- Android: 130/130 JVM, 0 omitidas; compilación release R8 y Lint sin errores. Queda el aviso del
+  patch Gradle 9.8.2 disponible; los dos avisos introducidos por el cambio se corrigieron.
+- JS: 51/51, incluidos cuatro contratos de actualización nativa del navegador; MV3 y recursos válidos.
+- Canal real consultado: GitHub Releases `erzod31/UniShare`, última 0.6.16. El cliente con versión
+  0.6.24 no ofrece downgrade. Con versión instalada **simulada** 0.6.15 se descargó el EXE público
+  0.6.16 (59 720 613 bytes), se verificaron hash/identidad/estado sin firma y se solicitó el lanzamiento
+  sólo a un adaptador falso. Cero instaladores reales ejecutados.
+- El primer test STA nuevo omitía DispatcherSynchronizationContext; falló al continuar en ThreadPool.
+  Se corrigió el ciclo de vida del test, conservando la implementación y las comprobaciones.
+- Evidencia actualizada y hashes de candidatos: `docs/in-app-updates-DG-0018.json` y
+  `artifacts/test-results/DG-0018/`. El informe distingue cada nivel de prueba.
+- Ocho candidatos 0.6.24 se generan desde el código limpio indicado en el informe, sin instalar.
+  La primera ronda previa a la revisión de firmas se conserva. Los 456 archivos del instalador extraído
+  coinciden por hash con el ZIP Windows y su ejecutable arranca/busca/cierra en perfil aislado.
+  APK `org.unishare.app`, código 37, firma v2 histórica verificada. Siete archivos ZIP/APK con CRC,
+  rutas y duplicados correctos; canales integrados y copias anidadas coinciden. Los ocho paquetes
+  anteriores 0.6.23 permanecen idénticos.
+- Los hashes definitivos y su revisión de código quedan en `docs/in-app-updates-DG-0018.json` y
+  `artifacts/SHA256SUMS-0.6.24.txt`. Los candidatos anteriores se conservan al regenerar.
+
+**NO VERIFICADO:** reemplazo efectivo del binario, registro/desinstalación/actualización, UAC y
+reapertura tras instalar en una VM independiente; permiso y aplicación nativos Android en dispositivo
+independiente; actualización real de extensión desde tienda. No se ejecutan instaladores reales en
+este Windows ni se modifican instalaciones del usuario. Los ZIP de desarrollo carecen de canal de
+tienda y no se presentan como autoactualizables. La publicación de producción sigue pendiente.
+
+## Traducción local automática 0.6.23 — entrega verificada
+
+- Restore bloqueado, Release y formato .NET correctos: 189/189 pruebas sin omisiones.
+- Android: 122/122 JVM; Lint 0 errores y el aviso de patch Gradle ya conocido.
+- JS: 47/47 contratos de extracción y traducción/integridad de assets.
+- Windows real: seis traducciones español/inglés y francés con pivote, online y con todas las
+  descargas bloqueadas. Vista integrada, ver original, desactivar/reactivar y cierre durante una
+  descarga bloqueada verificados mediante `tests/UniShare.TranslationRuntimeHarness`.
+- Android API 37: 2/2 de traducción/lectura/idioma y seis inferencias online/offline reales. 22/22 del
+  núcleo en texto normal y 22/22 al 200 %. Sin proveedor WebView en el emulador, 1/1 verifica original,
+  edición, preferencias y reinicio; se restauró el proveedor. Teléfono físico: **NO VERIFICADO**.
+- Edge aislado: descripción de 3169 caracteres traducida sin perder ninguna de sus 35 frases
+  repetidas, frase final, dos líneas, URL con parámetros, emoji ni hashtag.
+- APK release R8 instalado como actualización y arrancado en frío en API 37. Un respaldo sintético
+  se restauró con el selector real SAF: dos elementos aparecen traducidos dentro de la biblioteca.
+  La lectura alterna traducción/original y conserva URL, emoji y hashtag. El último APK también
+  verifica la confirmación de restauración en inglés y conserva los dos elementos después de actualizar.
+- E2E 1/1 con el ejecutable final: ambos sentidos, descripciones originales/autor, blobs, ACK y
+  reparación sin metadatos nuevos. No se sincroniza la traducción derivada como una edición.
+- Setup final instalado en el PC con salida 0: 25 elementos, seis tablas portables idénticas y
+  emparejamiento intacto; respaldos anterior/posterior inspeccionados. EXE instalado igual al del ZIP
+  y nodo autenticado activo. Cierre limpio del ejecutable empaquetado: 155 ms en la primera publicación.
+- Lectura de la biblioteca real: seis vistas ya estaban en el idioma elegido; seis tablas permanecen
+  idénticas tras abrir la UI, sin registrar textos privados. Cinco archivos públicos de modelos
+  inglés/español se aprovisionaron para que el PC pueda traducirlos sin una descarga inicial adicional.
+- Producto: `66c0195e9f1ffd3c9d6212bdee30672a897b0a10`; la fuente final añade sólo documentación.
+  ZIP fuente fuera de Git: restore bloqueado, 189 .NET y 47 Node. La protección de datos del ZIP acepta
+  el HOME virtual sólo en el glue público con SHA-256 exacto; una copia modificada vuelve a rechazarse.
+
+Paquetes de fecha 2026-10-26. Los ocho hashes completos están en `artifacts/SHA256SUMS-0.6.23.txt`:
+
+| Artefacto | SHA-256 | Validación |
+|---|---|---|
+| Windows Setup 0.6.23 | `758CA4F26636EBF5BB62FB7D179840505A522ECC9F749A7DE4D9F578F64B5AFE` | Instalación real, conservación, EXE y agente verificados |
+| Android APK 0.6.23 / código 36 | `99B9759422A8DA0874A3F524872F414B2F09B85CE5550C8732F6FEC6F3DF253D` | Firma histórica v2, actualización/arranque y traducción R8 real en emulador |
+
+Informes locales reproducibles: `artifacts/test-results/0.6.23/`, con TRX/XML saneados, suites de
+dispositivo, inferencia, E2E, instalación y regresión del escáner público. El APK conserva el certificado
+histórico `dd48fe5477fe2ade18144bb7bc14678ebeea3f4cbec54d46a9c31577423edc6b`.
+Windows sigue sin Authenticode y el APK conserva firma de desarrollo; no se declaran paquetes de tienda.
+
+**NO VERIFICADO:** teléfono físico, Android 8, todos los idiomas del catálogo, lectores de pantalla y
+equipos Windows sin WebView2. Android puede retirar su caché bajo presión de almacenamiento: si faltan
+modelos y no hay red se mantiene el original. Textos muy cortos/mezclados pueden detectarse mal;
+descripciones de más de 100 000 unidades UTF-16 se conservan sin traducir. Títulos, búsqueda y exportación
+permanecen en el original. La extensión continúa siendo un capturador, sin vista de traducción propia.
+Los pendientes históricos de seguridad/hardware no se marcan completados por esta entrega.
+
+## Matriz histórica general
 
 | Requisito/hito | Evidencia prevista | Estado | Resultado/limitación |
 |---|---|---|---|
 | H0 Inventario | `docs/progress.md`, listado del workspace y toolchains | VERIFICADO | Workspace sólo contenía el informe; no existía `.git`, código, tests ni build. .NET 10.0.400 y JDK 21 presentes; Android SDK ausente. |
-| H0 Build | restore bloqueado, build, test, format, publish y smoke | VERIFICADO | Fuente 0.6.14 con 0 warnings/0 errores y 94/94 tests .NET sobre MTP. El ejecutable autocontenido 0.6.14 pasó smoke y cierre limpio; los artefactos coordinados se regeneraron después del último cambio funcional. |
+| H0 Build | restore bloqueado, build, test, format, publish y smoke | VERIFICADO | 0.6.19: SDK 10.0.402, restore normal y `win-x64` bloqueados, formato limpio, Release con 0 advertencias/0 errores y 125/125 pruebas. Cierre limpio en 79 ms; Setup instalado con código 0, seis tablas y emparejamiento intactos. El ZIP fuente sin `.git` también generó y probó el instalador real. |
 | F-01 / D-01 | Tests de dominio + integración SQLite + UI | VERIFICADO Windows | Invariantes y persistencia pasan. UI Automation sobre el EXE final guardó, editó, eliminó, restauró y confirmó todos los metadatos después de reiniciar. Android mantiene sus flujos verificados en emulador; el recorrido físico sigue separado en F-02/F-11. |
-| F-02 Android / H7 | APK, tests, lint y Sharesheet/SAF en emulador/teléfono | FUNCIONAL en emulador; sincronización 0.5.1 VERIFICADA en teléfono | Android 0.6.14 pasa 67/67 tests debug y release, lint y R8. API 36 conservó datos al actualizar y verificó selección múltiple; 0.6.10 verificó SAF real, firma de contenido y limpieza. La conexión `.ts.net` y sincronización Wi-Fi/datos fueron confirmadas en teléfono. Sharesheet/SAF físico completo continúa pendiente. |
+| F-02 Android / H7 | APK, tests, lint y Sharesheet/SAF en emulador/teléfono | VERIFICADO en emulador API 37; teléfono físico parcial | 0.6.19: 71/71 JVM, 20/20 instrumentadas en texto normal y 200 %, permiso real denegado/concedido, compartir y SAF con recreación, R8 y Lint sin hallazgos. APK release instalado/arrancado en frío, código 32 y certificado histórico intacto. Falta repetir los recorridos exhaustivos en Android 17 físico. |
 | F-02 Windows | Test Share Target frío/caliente | APLAZADO CON MSIX/FIRMA | Windows exige identidad de paquete para Share Target. El ZIP portátil ofrece pegar, arrastrar/soltar y extensión local; no se declara Share Target nativo. |
 | F-03 | Tests importación y UI drag/drop/pegar | IMPLEMENTADO; extensión Edge VERIFICADA; publicación pendiente | Planificador por lote cubre archivos, varias URL, deduplicación y rechazo parcial. Edge con perfil aislado cargó la extensión MV3, configuró la clave, abrió el popup sobre una pestaña HTTP real y persistió un híbrido offline con título, autor, resumen y colección verificados. La cuenta Partner Center y certificación siguen siendo externas. |
 | F-04 | Tests CRUD/tombstone/reinicio | VERIFICADO Windows y Android en emulador | Windows 0.6.11 confirmó por UI guardar, editar título/notas/etiquetas/colecciones/favorito, mover a Papelera, restaurar y persistir tras reinicio. Android 0.6.1 verificó confirmación, desaparición de Biblioteca, Papelera y restauración; las reglas y tombstones continúan cubiertos por pruebas. |
 | F-05 | Tests FTS + benchmark 100k | VERIFICADO | FTS5 v2, migración v1→v2, triggers, prefijos y filtros combinables pasan. Benchmark 0.6.5: 100 000 items, 30 medidas, p95 57,5892 ms (<300 ms). |
 | F-06/F-07 | Tests de transferencia, reinicio, integridad y apertura offline | VERIFICADO | Además de la suite de streaming, reanudación, límites, integridad, CAS y HTML inerte, un arnés termina un proceso real en 256 KiB y 1536 KiB, reabre SQLite, reanuda con `Range`/`If-Range` y confirma contenido y SHA-256 exactos sin parcial residual. AOSP descargó una página HTTP pública, apagó Wi-Fi y abrió el blob local. |
-| F-08 | Fixtures Markdown + prueba Obsidian escritorio/móvil | IMPLEMENTADO; clientes Obsidian NO VERIFICADOS | Las pruebas verifican nota/adjunto por UUID, índice navegable, conservación del bloque editable, importación limitada a descripción y segunda importación sin cambios. Obsidian no está instalado en el equipo de compilación. |
-| F-09 | Réplicas + transporte directo | FUNCIONAL; TELÉFONO Y DATOS MÓVILES VERIFICADOS | Fusión cubre ida/vuelta, idempotencia, blobs, concurrencia, resoluciones y retirada causal. 0.6.9 añadió delta por agregados y ACK posterior al commit, con recuperación por snapshot y E2E en emulador. El usuario confirmó la ruta real por Wi-Fi y datos móviles; falta probar únicamente un cambio de red durante una operación en curso y el endurecimiento aplazado. |
+| F-08 | Fixtures Markdown + prueba Obsidian escritorio/móvil | IMPLEMENTADO; clientes Obsidian NO VERIFICADOS | 0.6.19 comprueba actualización exclusiva del bloque gestionado, frontmatter/apéndices, identidad única, colisiones, marcadores inválidos, retirada con notas personales y adjuntos, y ausencia de bucle. Obsidian está instalado, pero abrirlo sin un perfil aislado fue bloqueado para no mostrar el vault habitual; no se afirma validación visual. |
+| F-09 | Réplicas + transporte directo | VERIFICADO con nodo Windows real y emulador API 37; teléfono previo verificado | 0.6.18 prueba intercambio, cursores y reparación sin operaciones nuevas por `adb reverse`. La prueba de corte HTTP conserva outbox y reintenta sin duplicados; los conflictos siguen explícitos. Wi-Fi/datos físicos fueron confirmados antes por el usuario; falta Android 17 físico y cambio de red durante una operación. |
 | F-10 | Round-trip de backup en perfil temporal | VERIFICADO Windows y Android en emulador | ZIP v1 + NDJSON + SHA-256: round-trip Windows conserva IDs/metadatos/tombstones/relaciones/blobs, regenera device ID, reconstruye búsqueda y rechaza manipulación/destino existente. Android incorporó desde el selector una copia legacy v1 sin borrar datos (`0 nuevos, 0 actualizados, 0 conflictos`) y los elementos persistieron tras reiniciar. |
 | F-11 | Tests de UI y checklist accesibilidad | PARCIAL AVANZADO | 0.6.12 implementa selección múltiple y acciones por lote en Windows/Android; API 36 confirmó dos casillas, recuento, acción `Eliminar (2)` y cancelación sin pérdida. Windows añade UI Automation, regiones vivas, texto y atajos; Android semántica TalkBack, región viva y diseño compacto. Falta escucha real con Narrador/TalkBack y recorrido físico exhaustivo. |
 | N-01 | Suite con red deshabilitada | VERIFICADO Windows y Android | Windows encadena alta híbrida, búsqueda, lectura del blob, reapertura, exportación y restauración con política y transporte HTTP que rechazan cualquier intento; se observan cero accesos de red. Android AOSP abrió y conservó LINK, FILE, HYBRID y el blob verificado tras reinicio con `wifi_on=0` y `mobile_data=0`. |
 | N-02 | Tests de fallos inyectados | VERIFICADO para persistencia y transferencias | Respuesta truncada y cancelación no crean assets incompletos; cortes reales antes y después del checkpoint dejan el job `Running` y un parcial reanudable, nunca un asset publicado. La recuperación verifica longitud, bytes y SHA-256 y elimina el parcial. Windows/Android recolectan sólo CAS canónico no referenciado tras siete días. |
 | N-04 Android | Fixtures de firma + SAF real | VERIFICADO en emulador | PDF, PNG, JPEG, GIF, WebP, ZIP, MP3, MP4, HTML y SVG se reconocen con 512 bytes. Se rechazan firmas activas/contradictorias antes de CAS; API 36 confirmó que el rechazo no crea item, operación, blob ni parcial. |
-| N-06 | Benchmark reproducible | VERIFICADO | Host documentado de 16C/32T, 31,9 GiB RAM, NVMe, Windows 11 Pro 26300 y .NET SDK 10.0.401. Repetición actual: 100 000 items, 30 consultas, p95 80,4066 ms (<300 ms). |
+| N-06 | Benchmark reproducible | VERIFICADO | Host de 16C/32T, 31,9 GiB RAM y NVMe, SDK 10.0.402. Repetición 2026-10-16 con emulador activo: 100 000 items, 30 consultas, mediana 87,2977 ms y p95 97,8317 ms (<300 ms). |
 
 ## Evidencia de ejecución 0.5.1 — 2026-09-26
 
@@ -821,3 +905,294 @@ Los comandos se ajustarán al nombre real generado sin borrar evidencia anterior
 - Validación funcional posterior: SDK .NET 10.0.401, restore bloqueado, formato limpio, Release con 0
   advertencias/0 errores y 87/87 pruebas. Android ejecutó 61/61 pruebas debug y 61/61 release, sin fallos
   ni omisiones, `lintRelease` y `assembleRelease` correctos.
+
+## Evidencia de ejecución 0.6.17 — 2026-10-15
+
+- Fuente de producto `bfbc0dca9df646258a99a95f28d65a712fd3aaa4.dirty`: el sufijo registra que los
+  cambios auditados aún no forman un commit. Windows declara `FileVersion=0.6.17.0` y
+  `ProductVersion=0.6.17+bfbc0dca9df646258a99a95f28d65a712fd3aaa4.dirty`; Setup declara 0.6.17.
+- SDK .NET 10.0.402: restauración normal y `win-x64` en modo bloqueado, formato limpio, Release con 0
+  advertencias/0 errores y 109/109 pruebas. Bajo cobertura: infraestructura/aplicación 4816/5455 líneas
+  (88,29 %) y 1797/2516 ramas (71,42 %); dominio 127/187 (67,91 %) y 48/66 (72,73 %); el bloque WPF
+  650/2450 (26,53 %) y 156/956 (16,32 %), complementado por pruebas STA y smoke real.
+- NuGet: cero paquetes vulnerables, en desuso o directos desactualizados. Las versiones mayores que
+  aparecen sólo con `--include-transitive` están fijadas por Microsoft.Data.Sqlite/cobertura y no se
+  fuerzan fuera del grafo del proveedor.
+- Android: Gradle 9.8.1/AGP 9.4.1 ejecutaron `clean test lintRelease assembleRelease`; 71/71 pruebas,
+  cero hallazgos lint, R8 y APK correcto. `aapt2` confirmó versionCode 30, versionName 0.6.17,
+  compile/target SDK 37, minSdk 26 y `ACCESS_LOCAL_NETWORK`; `apksigner` confirmó firma v2 y un firmante
+  Android Debug compatible con las instalaciones laterales anteriores.
+- El Wrapper JAR coincide con el SHA-256 oficial de Gradle 9.8.1
+  `3B8A25775A69158B5AD2B1D17A80A88DC7B40A352A73EB27D06C612A7CE68E98`; la distribución usa
+  `DCE76F55F8E251A3A1F130EB120F30B3D271DE2B76C9B0729D316B5A1B6DC01F`.
+- Android Lint está limpio. Gradle registra una obsolescencia dentro de
+  `com.android.internal.application` y el empaquetado sin reducción adicional de
+  `libandroidx.graphics.path.so`; ambos pertenecen a dependencias, no a scripts de UniShare, y el build
+  termina correctamente.
+- El EXE autocontenido final pasó la prueba de cierre limpio en 109 ms. El validador Chromium confirmó
+  MV3, 4 JavaScript, 3 JSON y 2 idiomas; `node --check` y el parser de los 5 PowerShell terminaron bien.
+  El escaneo de paquetes encontró cero rutas personales, alias, endpoint real o credencial conocida.
+- Benchmark FTS5: 100 000 items, 30 consultas, generación 7,9310 s, mediana 62,0611 ms y p95
+  84,3864 ms frente al máximo de 300 ms (`Passed=true`).
+- Todos los ZIP se leyeron completamente y carecen de rutas absolutas, ascendentes y duplicadas:
+  Windows 418 entradas/193 645 645 bytes expandidos; Android 2/1 609 015; Chromium y Edge Store
+  14/35 882; expediente Edge 5/69 634. El APK interior coincide con el suelto, Chromium coincide con
+  Edge Store y el Store anidado en el expediente coincide con el paquete independiente.
+- Artefactos coordinados finales:
+  - Windows Setup, 59 777 030 bytes, SHA-256 `5B1B91449B8DD6925BB26F21FB4325866FB17A2291C09291ED5FB7E61102E617`.
+  - Windows ZIP, 84 413 311 bytes, SHA-256 `0BE569CCD34D870CE1B40DFDF3D42179E4FC1B1B9040BC0CBDE72105F821DF55`.
+  - Android APK, 1 601 027 bytes, SHA-256 `11D2A4F9A734E8BEBF655DC4EB53CF2A6A9779BC4ED54808C8EABF2708E4A773`.
+  - Android ZIP, 1 407 489 bytes, SHA-256 `75C9E67934281AA7827A53113AE1E71EF43EFD8356AA079E4BDC17CA0A567C7C`.
+  - Chromium/Edge Store, 23 771 bytes, SHA-256 `C5B7ADE7596E3E85F3C6AD43C346ABFCE4A6CEDDC9C7A406AE3B4A94A0E4EDC0`.
+  - Expediente Edge, 66 317 bytes, SHA-256 `AC7DA4478A643F2D1A787EA9020FEF9F6873D33B2AE3D2658DCF37147D8F3C41`.
+- **NO VERIFICADO:** instalación/actualización real del Setup 0.6.17 sobre la copia del usuario; permiso
+  y sincronización en Android 17 físico; Sharesheet/SAF y TalkBack/Narrador exhaustivos; cambio de red en
+  mitad de transferencia; clientes Obsidian reales; publicación Edge/GitHub; Authenticode y firma Android
+  de producción. No se creó ZIP fuente porque el árbol aún está deliberadamente sin confirmar y el
+  saneador público rechaza ese estado.
+
+## Evidencia de ejecución 0.6.18 — 2026-10-16
+
+- Fuente de producto `dd34bc4111a2454b353bdaa22ee690ecb776195c`: Windows
+  `FileVersion=0.6.18.0`, `ProductVersion=0.6.18+dd34bc4111a2454b353bdaa22ee690ecb776195c`.
+  Los commits posteriores sólo modifican documentación/saneamiento del ZIP fuente.
+- Restore bloqueado normal/`win-x64`, formato verificado, Release con 0 advertencias/0 errores y
+  112/112 pruebas .NET. Las regresiones nuevas reprodujeron primero el rechazo del blob dañado y un
+  delta sin elementos (esperado 1, observado 0), y después verificaron recuperación y preservación.
+- Android: compilación limpia, 71/71 JVM, Lint sin hallazgos y R8; APK release regenerado después del
+  commit. Los 17 escenarios instrumentados pasan con texto normal y 200 %, incluyendo los botones reales
+  de denegar/conceder permiso de red local, SAF con recreación, compartir y contraste de barras.
+- E2E adicional: nodo Windows real y emulador API 37 por `adb reverse`, sin perfil ni clave del usuario;
+  ida/vuelta de metadatos/blobs, ACK y reparación sin operaciones nuevas. Windows inspeccionó el backup
+  Android (2 items, 2 assets, 2 blobs, 1 etiqueta y 1 colección). Corte HTTP y ACK inválido no mutan ni
+  confirman indebidamente el estado local.
+- El APK declara `versionCode=31`, `versionName=0.6.18`, minSdk 26/target 37, firma v2 y un firmante;
+  su certificado SHA-256 `dd48fe5477fe2ade18144bb7bc14678ebeea3f4cbec54d46a9c31577423edc6b`
+  coincide exactamente con 0.6.17. La actualización real en emulador conservó el enlace y primera instalación.
+- La ruta APK/AAB de producción pasó con una clave temporal de QA, eliminada después. Sin credenciales
+  se rechaza el modo producción. Windows sin certificado también se rechaza cuando se exige firma;
+  la firma positiva Authenticode sigue NO VERIFICADA y el Setup lateral permanece `NotSigned`.
+- El EXE autocontenido cerró en 108 ms. El Setup se instaló con salida 0. Antes se exportó e inspeccionó
+  un backup; después, seis tablas de metadatos siguieron idénticas (8 items, 0 assets, 0 blobs). El nodo
+  autenticado instalado quedó activo en segundo plano. El intento de captura visual agotó la autorización
+  del controlador; ese recorrido no se marca superado.
+- Licencias: Windows inventaría 10 paquetes/frameworks y copia sus textos originales; APK contiene
+  58 archivos de licencia y 73 dependencias runtime, sin bibliotecas instrumentadas. El build usa la API
+  de variantes y resolución diferida, sin el aviso de resolución durante configuración.
+- Ocho PowerShell válidos; extensión MV3, 4 JavaScript y 3 JSON en 2 idiomas. Todos los ZIP se leyeron
+  completos sin rutas inseguras o duplicadas: Windows 430 entradas/193 804 400 bytes expandidos;
+  Android 2/1 819 689; Chromium/Edge 14/35 882; expediente Edge 5/69 634.
+- Benchmark final con 100 000 elementos: generación 8,6875 s, 30 consultas, mediana 87,2977 ms y p95
+  97,8317 ms frente al límite de 300 ms. El emulador y el nodo instalado estaban activos.
+- El saneador rechaza un CAS versionado en un repositorio sintético. La fuente pública se genera desde
+  el árbol confirmado y se inspecciona sin historial, perfiles, blobs, staging, recovery, backups o claves.
+- Primera ejecución desde el ZIP fuente extraído sin `.git` ni archivos locales: restore bloqueado,
+  Release sin advertencias/errores, 112/112 pruebas .NET, smoke con salida 0 y base SQLite nueva;
+  Android `test lintRelease assembleRelease`, 71/71 JVM, Lint/R8/APK correctos. Registros saneados en
+  `artifacts/test-results/source-first-use.txt` y `source-first-use-android.txt`.
+- El saneador también rechaza `build`/cachés accidentales. Las regresiones `build` y `blobs` confirmaron
+  rechazo, eliminación del ZIP temporal y SHA-256 intacto del ZIP válido previo. La publicación sólo se
+  realiza después de validar. Los cambios posteriores al ensayo de fuente no afectan clientes ejecutables.
+- Limpieza: se eliminaron compilaciones regenerables, perfiles QA y extracción temporal; se conservaron
+  informes saneados y paquetes actuales. Los paquetes 0.6.17 están recuperables en la Papelera. El
+  agente instalado 0.6.18 quedó activo y no se modificaron datos del usuario durante la limpieza.
+- Artefactos binarios finales:
+  - Setup Windows, 59 796 831 bytes, SHA-256 `EE32E625AFDC43FADB9D9BBD21355B56CD399CD17F9994FD70F0762E9EA73580`.
+  - ZIP Windows, 84 447 969 bytes, SHA-256 `888BD0395561EC60792835E91141D7382D0C148457ECCCA9E835E9C2A5D104DE`.
+  - APK Android, 1 809 814 bytes, SHA-256 `C398D924845D12C61FA23663ADAE6ADDD4FEB5C6A49CC15044759C8BAC8BDDC9`.
+  - ZIP Android, 1 433 592 bytes, SHA-256 `A96AAD3933F29EBE95172CA45EE4FA020FCA605C969D970ED84B202B768326AF`.
+  - Chromium/Edge Store, 23 771 bytes, SHA-256 `81F984C8FE66B344DA4FD97B4249C8B95BBEB139ABCFA2A801BED70EC620FB00`.
+  - Expediente Edge, 66 317 bytes, SHA-256 `ACD2BC759D06A9BF8C50F334EB86DB5FA8A470F2B62660E860E8BC65CD1E45A7`.
+  - Fuente: tamaño/hash final en `SHA256SUMS-0.6.18.txt`, generado después de confirmar esta evidencia
+    para evitar una referencia circular.
+- **NO VERIFICADO:** Android 17 físico, cambio de radio Wi-Fi↔datos durante una transferencia,
+  TalkBack/Narrador exhaustivos, recorrido visual nuevo Windows, clientes Obsidian reales, tiendas y
+  certificados definitivos. MSIX y cifrado/rotación permanecen aplazados por la decisión de producto.
+
+## Evidencia de ejecución 0.6.19 — 2026-10-16
+
+- Commit de producto `4f3193b0b7d832b914022c75706f64e7522b6991`; los cambios posteriores son sólo
+  documentación. Windows declara `0.6.19.0` y revisión exacta sin `.dirty`.
+- Regresiones reproducidas antes de corregir: siete fallos Obsidian y aceptación del stream Android
+  más corto que la longitud anunciada. Los casos finales incluyen propiedades/encabezados/apéndices
+  con notas vacías, identidades duplicadas, archivos ajenos y traducción de los errores nuevos.
+- Restore bloqueado, Release con 0 advertencias/0 errores, formato verificado y 125/125 pruebas .NET.
+  Android limpio: 71/71 JVM, Lint sin hallazgos, R8; 20/20 instrumentadas normales y 20/20 al 200 %.
+  El caso gzip usa HTTP real y conserva los bytes descomprimidos; longitud desconocida también pasa.
+- Fuente pública extraída fuera de Git: restore/build y 125/125 pruebas; publish autocontenido,
+  licencias, prueba de cierre en 76 ms e Inno Setup completos. `SOURCE_REVISION` coincide con el commit
+  y el EXE declara `.archive`. El paquete principal cerró en 79 ms. Las versiones inválidas se rechazan
+  antes de modificar salidas. Registros: `artifacts/test-results/source-installer-0.6.19.log`.
+- E2E separado 1/1: Android API 37 y nodo Windows final real con perfil/clave sintéticos; ida/vuelta,
+  metadatos, archivos, ACK y reparación sin operaciones nuevas. Windows comprobó título, autor y resumen
+  del elemento editado desde Android e inspeccionó su backup: 2 items, 2 assets, 2 blobs, 1 etiqueta y
+  1 colección, 132 098 bytes de blobs. Informe: `android-windows-e2e-0.6.19.txt` en test-results.
+- Instalación real: Setup salida 0, perfil de 8 items/0 assets/0 blobs preservado, seis tablas NDJSON
+  idénticas y SHA-256 de configuración de emparejamiento sin cambios. Backup previo inspeccionado en
+  el perfil; agente 0.6.19 iniciado en segundo plano. Resumen: `install-summary-0.6.19.json`.
+- APK final: código 32, versión 0.6.19, minSdk 26/target 37, firma compatible histórica SHA-256
+  `dd48fe5477fe2ade18144bb7bc14678ebeea3f4cbec54d46a9c31577423edc6b`; instalado en emulador y arranque
+  frío correcto en 1866 ms. No se instaló en un teléfono físico. Conserva 58 archivos de licencia.
+- ZIPs recorridos completos sin rutas inseguras ni duplicadas: Windows 430 entradas/193 807 329 bytes
+  expandidos; Android 2/1 819 693; Chromium/Edge 14/35 882; expediente Edge 5/69 634. Extensión MV3
+  validada: cuatro JavaScript, tres JSON y dos idiomas. No se incorporan dependencias nuevas.
+- Paquetes finales (todos 0.6.19, fecha 2026-10-16):
+  - Setup Windows, 59 795 710 bytes, SHA-256 `7D98C648BA1C491D89B62A44F79083AD57470DF9926B1DA010E01CD8CFF12404`.
+  - ZIP Windows, 84 448 685 bytes, SHA-256 `1C03A91B4DD8A4037C82ED70F3BCD9E627318470D7C39B848F3B6038AA21AA7E`.
+  - APK Android, 1 809 818 bytes, SHA-256 `3A61A086748A4A56ACB468DF101D9EA5E86A320514608488504C7652B801E2FE`.
+  - ZIP Android, 1 434 144 bytes, SHA-256 `9C932BE650F9171BF6FF0B6EDE4F10E115515F656CB622C8079D5C6A48D4883F`.
+  - Chromium/Edge Store, 23 771 bytes cada uno, SHA-256 `37983EAEE035972B9E331D5A3C2705EBEB13F5FCD50FE0C2895FD64463BA3007`.
+  - Expediente Edge, 66 317 bytes, SHA-256 `E0D694AF78794F900D08502A4DA3F10A8B685D170720E3D74312CD7A5F8722D1`.
+  - Fuente final: tamaño/hash en `artifacts/SHA256SUMS-0.6.19.txt`, después del commit documental.
+- **NO VERIFICADO:** clientes Obsidian visuales (apertura bloqueada para proteger el vault habitual),
+  recorrido visual Windows nuevo, Android 17 físico/cambio de red durante transferencia, escucha
+  completa TalkBack/Narrador, tiendas y firmas definitivas. Obsidian exporta/importa desde Windows;
+  no se declara un bridge Android inexistente. Cifrado/rotación y MSIX siguen aplazados por el usuario.
+- Cierre: ocho PowerShell parsean; 60 Markdown sin enlaces locales rotos; fuentes sin identificadores
+  personales conocidos. El EXE instalado y el ZIP coinciden; APK anidado y paquetes Edge/Chromium también.
+  Limpieza de bin/obj/build/cachés, QA y extracción terminada; informes saneados, datos/backups intactos,
+  nueve archivos 0.6.18 recuperables en la Papelera. El nodo instalado respondió con autenticación después.
+
+## 2026-10-26 — Descripciones originales y entrega 0.6.20
+
+- Producto: `f624f45facbae8d738617f5aeb17797ea77324b4`, árbol limpio al empaquetar. Los commits
+  posteriores de esta entrega sólo registran documentación/evidencia. No se ha realizado push externo.
+- Se reprodujeron 11 fallos nuevos .NET sobre 141 pruebas y 11 JVM sobre 87 antes de corregir el
+  extractor. La prueba pública Android falló después por la variante móvil de TikTok; otros dos
+  contratos también fallaron antes de añadir `webapp.reflow.video.detail` en los tres clientes.
+- Resultado final: **162/162 .NET**, ninguna omitida; **102/102 Android JVM**; **27/27 Node** y
+  **28/28 Microsoft Edge** aislado. Formato y Release .NET sin advertencias/errores. Android
+  `test lintRelease assembleDebug assembleDebugAndroidTest assembleRelease` y R8 correctos; Lint
+  conserva un aviso de patch Gradle disponible, 0 errores. No se ha desactivado el análisis.
+- API 37: **21/21 instrumentadas normales y 21/21 al 200 %**, incluyendo los 26 fixtures con JSON
+  nativo. Prueba de Internet separada **1/1**: el pie de la publicación pública usada como ejemplo por
+  TikTok mide 83 unidades UTF-16 y su SHA-256 UTF-8 coincide exactamente en Android, Windows y Edge:
+  `D3C338745C96B6A7684589C25778C9282C92AF91354E60421CBECE3AA2E6202D`.
+- E2E Android–Windows **1/1** contra el ejecutable publicado y perfiles aislados: ambos sentidos,
+  pie con enlaces/emojis, autor, archivos, ACK y reparación sin nuevas operaciones de metadatos.
+  Ambos backups conservan los campos esperados; `inspect` del Android confirma 2 items, 2 assets,
+  2 blobs y 132 099 bytes verificados. No se usan la clave ni el perfil personales en esa prueba.
+- Setup final: autocontenido x64, Inno Setup correcto y cierre limpio en **91 ms**. APK final:
+  `org.unishare.app`, versión 0.6.20/código 33, R8, firma v2 y certificado histórico sin cambios.
+  Se instaló y arrancó en frío en API 37, `Status: ok`; es prueba de emulador, no de teléfono físico.
+- Instalación PC con salida 0: 25 items, 0 assets y 0 blobs antes/después; seis tablas NDJSON idénticas,
+  emparejamiento intacto, backup previo inspeccionado, EXE instalado idéntico al publicado y nodo
+  autenticado activo. Después se ejecutó realmente la migración v4 desde la ventana instalada:
+  **16/16 TikTok existentes pasan de descripción vacía a recuperada**. Los 25 UUID y URLs originales,
+  las seis descripciones previas no vacías y las otras cinco tablas portables permanecen idénticos.
+  Se conserva también un backup posterior al enriquecimiento, fuera del repositorio público.
+- Fuente portable: extracción independiente fuera de Git, restore `--locked-mode`, **162/162 .NET**
+  y **27/27 Node** correctos. La fuente final incluye sólo documentación adicional al código de
+  producto probado y su `SOURCE_REVISION`; el empaquetador rechaza datos privados y generados.
+- Artefactos del **2026-10-26**, reconstruidos tras el último cambio de producto:
+  - Setup Windows: 59 793 510 bytes, SHA-256
+    `78590D55CF90A9D4AA965513EDE60364521CD9C1F7B1B9A6089D7292065FD8A0`.
+  - Windows portátil: 84 455 308 bytes, SHA-256
+    `C7457C456B4F275813A48F3EE5B648E3AF4B1C3F60F98CB268557DFA1AD063C0`.
+  - APK: 1 826 254 bytes, SHA-256
+    `D781A1E7ABB232B4D25CC2FEAF0BE714B25853EE32D587F3F803D6A12CE51567`.
+  - ZIP Android: 1 438 689 bytes, SHA-256
+    `92AC593A8D1A400B6C37A95479E419254F4EB732E4672F8939C1115A982770CC`.
+  - Chromium y Edge Store: 25 256 bytes cada uno, SHA-256
+    `60CD37B60173523CC1F6C718D3997F7D22207297B96D441E4033549B09D86CBC`.
+  - Expediente Edge: 67 803 bytes, SHA-256
+    `B8882A16CDEBAFB34ED6FEFB35143ABE1D668DE3E786C7686DAB8C1AB3164C68`.
+  - Fuente final y manifiesto completo: `artifacts/SHA256SUMS-0.6.20.txt`, generado tras cerrar la
+    documentación. Todos los ZIP se inspeccionan y sus archivos anidados se contrastan con los sueltos.
+- Evidencia local: TRX de `artifacts/test-results/final-0.6.20`, informes `android-api-37-*`,
+  `android-origin-network-0.6.20.txt`, `android-windows-e2e-0.6.20.txt`, `e2e-summary-0.6.20.json`,
+  `windows-install-0.6.20.json` y `existing-tiktok-migration-0.6.20.json`. Diagnóstico, fuentes y
+  reproducción en [audit-2026-10-26.md](audit-2026-10-26.md) y ADR 0030. No se versionan datos personales.
+- **NO VERIFICADO:** recepción de la biblioteca concreta en el teléfono físico, nuevas pruebas de
+  hardware/cambio Wi-Fi↔móvil, recorrido completo TalkBack/Narrador y Obsidian visual. No se promete
+  acceso a posts privados, retirados o bloqueados ni compatibilidad con todas las redes sociales.
+  Seguridad adicional, certificados definitivos, tiendas y MSIX conservan su alcance pendiente anterior.
+
+## 2026-10-26 — Títulos y traducción, entrega 0.6.21
+
+- Producto final: `7ba5989e17ec264d002a25e758f0332766cf0a21`, limpio al reconstruir. Los commits de
+  documentación posteriores no cambian el código del producto. Sin push externo.
+- **179/179 .NET**, **113/113 Android JVM**, **36/36 Node**, **37/37 contratos en Edge real**.
+  .NET Release/formato correctos; Android Lint 0 errores y el aviso de patch Gradle disponible anterior.
+  El R8 final se regeneró íntegramente después del commit. La fuente extraída fuera de Git también
+  pasa las 179 pruebas .NET y las 36 Node; restore bloqueado comprobado, sin dependencias nuevas runtime.
+- **22/22 instrumentadas en API 37, normal y texto 200 %**. Incluyen 34 fixtures de origen con JSON
+  nativo y confirmación/cancelación de traducción en español/inglés. El navegador de esa prueba se
+  intercepta: cancelar no lo solicita; confirmar transmite exactamente el texto y el destino previstos,
+  sin cambiar la descripción almacenada. Google Translate real se comprobó por separado con texto
+  sintético `Hello world` → `Hola Mundo`, sin cuenta y rechazando cookies adicionales.
+- HTTP Android separado **1/1**, con el hash de pie público esperado. La última sonda del ejemplo público
+  Windows no obtuvo pie y Edge mostró `Access Denied`: esa última recuperación se marca **NO VERIFICADA
+  por acceso del proveedor**, no como prueba superada. Un enlace real de la biblioteca Windows sí
+  devolvió su pie original y un título aplicable, sin revelar su URL; después la migración se verificó
+  en los 16 elementos. Las limitaciones de acceso no se resuelven fingiendo otro cliente o una sesión.
+- E2E final **1/1** contra el ejecutable publicado: ambos sentidos, pie con enlaces/emojis, autor,
+  archivos, ACK y reparación sin nuevas operaciones. Backup Android inspeccionado: 2 items, 2 assets,
+  2 blobs. Informes `android-windows-e2e-0.6.21.txt`, `e2e-summary-0.6.21.json` y
+  `android-backup-e2e-0.6.21.json` bajo `artifacts/test-results`.
+- Setup final correcto, cierre limpio en **130 ms**. Instalación PC con salida **0** y comparación
+  binaria con el ZIP. Antes de enriquecer: 25 items y seis tablas idénticas, emparejamiento intacto.
+  Después de la migración **v6**: **16 títulos genéricos corregidos**, todas las descripciones y los
+  demás títulos idénticos, mismas 25 identidades/URLs y cinco tablas portables restantes sin cambios.
+  Backup final inspeccionado fuera del repositorio; agente instalado autenticado y activo.
+- APK release final: `org.unishare.app`, **0.6.21/código 34**, firma v2 histórica sin cambios, actualización
+  e inicio en frío correctos en API 37. El DEX contiene las acciones nuevas. AGP registra
+  `NO_SUPPORTED_VCS_FOUND` en su metadato VCS: no se presenta como commit incrustado verificado; la
+  procedencia se registra mediante checkout limpio de compilación, versión y hashes del manifiesto.
+- Artefactos del **2026-10-26**, reconstruidos después del último cambio relevante:
+  - Setup: 59 794 506 bytes, SHA-256 `6BBA3FA2FE0B7C3972A283FB1B92FEFC53B5D5B24538BC8DD82DF1F2BFC2B2AD`.
+  - Windows ZIP: 84 457 929 bytes, SHA-256 `8A4C40A02BB8503F925B507C26AC290C3B53688CAFB0E24DEDECA42890A7AE1F`.
+  - APK: 1 826 254 bytes, SHA-256 `35C348F7171532BD93705963738CAA5E2CB50B2DC91918A71B59ED51361BC84C`.
+  - Android ZIP: 1 441 173 bytes, SHA-256 `AB9A818B041E64E48F7C52AE56BB90005CF194766E86CC29CFC1789A88589E56`.
+  - Chromium/Edge Store: 25 322 bytes cada uno, SHA-256 `8056DB995A33B577D6056F5DD259E9273FB8856402E24991B9A157AD4BED0C6F`.
+  - Expediente Edge: 67 868 bytes, SHA-256 `A56FDCB3C28FFA6D0F7AFA51C757A29CF9BB6D1310ADB093EFB9A284746DA4BE`.
+  - Fuente y ocho hashes históricos: `artifacts/test-results/history/SHA256SUMS-0.6.21.txt`;
+    los paquetes anteriores se conservan en el archivo recuperable indicado en la limpieza 0.6.22.
+  Todos los ZIP pasan CRC, rutas únicas/seguras y comparación de APK/Edge anidados. EXE instalado y
+  portátil idénticos. Windows sigue sin Authenticode; APK con la identidad de desarrollo histórica.
+- **NO VERIFICADO:** recepción concreta en el teléfono físico, nuevas pruebas físicas/red móvil,
+  recorrido completo Narrador/TalkBack, Obsidian visual y tiendas/certificados definitivos. La traducción
+  ofrecida abre Google en navegador y necesita Internet; no es un motor integrado u offline. El original
+  no se reemplaza automáticamente por una traducción. Los hitos de seguridad aplazados siguen pendientes.
+
+## 2026-10-26 — Encabezados breves, entrega 0.6.22
+
+- Producto: `446f9872d259e98aef35751cb1248f3b01a4900b`, limpio al empaquetar. Los commits posteriores
+  sólo documentan esta entrega. No se ha publicado mediante push externo.
+- **184/184 .NET**, **118/118 JVM**, **41/41 Node**, **42/42 contratos en Edge**. Release .NET sin
+  advertencias/errores; formato y Lint correctos (0 errores y el aviso anterior de patch Gradle disponible).
+  R8 final regenerado completo después del commit. Fuente extraída fuera de Git: restore bloqueado,
+  184 pruebas .NET y 41 Node correctas. No se añaden dependencias runtime.
+- **22/22 instrumentadas normales y 22/22 al 200 %** en API 37: 39 fixtures nativos, persistencia,
+  permisos, UI y traducción bilingüe. La primera corrida falló en cuatro controles que quedaron tapados
+  por `Application Not Responding: com.android.systemui`; XML/captura y `dumpsys window` identificaron
+  el proceso del sistema. Se reinició el emulador aislado y se repitieron las suites completas; no se
+  cambiaron aserciones ni se excluyeron casos. E2E final **1/1** con el ejecutable publicado y archivos,
+  pie, autor, ACK y reparación; backup inspeccionado, 2 items/2 assets/2 blobs.
+- Una sonda de sólo lectura sobre un enlace existente produjo un título de 74 caracteres y confirmó
+  que su descripción coincidía exactamente con la guardada, sin registrar URL ni texto personales.
+- Setup instalado con salida **0**, cierre limpio en **78 ms**, EXE instalado y ZIP idénticos, nodo
+  autenticado activo y emparejamiento intacto. Antes de enriquecer: seis tablas idénticas. Tras la v7:
+  **16 títulos acortados, ninguno supera 80 y máximo observado 79**. Permanecen los 25 items, todas
+  las descripciones/URLs/identidades, los demás títulos y las otras cinco tablas portables. Backup
+  posterior inspeccionado en el perfil real; informes sin contenido personal.
+- APK release **0.6.22/código 35**, actualización y arranque en frío correctos en API 37, firma v2
+  histórica intacta y acciones nuevas presentes en DEX. La conclusión se limita al emulador: el teléfono
+  físico y su recepción final concreta permanecen **NO VERIFICADOS**. La función de traducción sigue
+  siendo voluntaria, en navegador Google, con confirmación y original intacto; no es un motor offline.
+- Artefactos del **2026-10-26**, después del último cambio relevante:
+  - Setup: 59 801 158 bytes, SHA-256 `F4757EFB425DBE23394141DC3311D1921E45ACDA74FE2FA3BE6477FD3804D2DA`.
+  - Windows ZIP: 84 461 202 bytes, SHA-256 `98D9C7DC0085A5F65AB8A98910DED133C785C2CBE01123B5AF9289AED9FF9E23`.
+  - APK: 1 826 254 bytes, SHA-256 `D8C1E5786A9180563CB28F5F6324D41A28FD36B4E0D63C515F3172DBF82D2265`.
+  - Android ZIP: 1 441 725 bytes, SHA-256 `CCC4717C4FF52A290384589E094D09A9F50507D78B144B24B14F28A19199E88E`.
+  - Chromium/Edge Store: 25 513 bytes cada uno, SHA-256 `B07ED17FC88979B56E789A52C2FF8AEE7F1D012A8CA1B91BD5EC9142502A5983`.
+  - Expediente Edge: 68 059 bytes, SHA-256 `C08E359ECB3E7EDAF98F97BFEBAF35290BD8304E7767D9F8C68FDD4B5CBCBFF8`.
+  - Fuente final y ocho hashes: `artifacts/SHA256SUMS-0.6.22.txt`, tras el cierre documental.
+  CRC/rutas y copias anidadas contrastados. Windows continúa sin Authenticode; APK con identidad de
+  desarrollo histórica. La limitación del metadato VCS de AGP y las pruebas físicas pendientes se
+  mantienen expresamente identificadas en la entrega anterior.
+- Limpieza completada: 80 entradas recuperables fuera del repositorio (bin/obj, builds/cachés Android,
+  QA/emulador, extracciones fuente y paquetes 0.6.19–0.6.21). Evidencia final saneada y un TRX por
+  proyecto conservado; ocho artefactos actuales. Biblioteca, emparejamiento y backups del usuario intactos.
+  Registro: `artifacts/test-results/cleanup-0.6.22.json`. La limpieza es recuperable, no se afirma haber
+  liberado permanentemente el espacio del archivo de recuperación.

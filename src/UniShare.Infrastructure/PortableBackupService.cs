@@ -77,7 +77,17 @@ public sealed class PortableBackupService : IBackupService, ISelectiveBackupServ
         var temporaryPath = destination + $".partial-{Guid.NewGuid():N}";
         try
         {
-            var snapshot = FilterSnapshot(await ReadSnapshotAsync(cancellationToken), includedItemIds);
+            var snapshot = await ReadSnapshotAsync(cancellationToken);
+            if (includedItemIds is not null && includedBlobHashes is { Count: > 0 })
+            {
+                var expandedItemIds = new HashSet<string>(includedItemIds, StringComparer.OrdinalIgnoreCase);
+                foreach (var asset in snapshot.Assets.Where(asset => includedBlobHashes.Contains(asset.Sha256)))
+                {
+                    expandedItemIds.Add(asset.ItemId);
+                }
+                includedItemIds = expandedItemIds;
+            }
+            snapshot = FilterSnapshot(snapshot, includedItemIds);
             var createdAtUtc = DateTimeOffset.UtcNow;
             var checksums = new SortedDictionary<string, string>(StringComparer.Ordinal);
             var uniqueBlobs = snapshot.Assets
@@ -351,7 +361,8 @@ public sealed class PortableBackupService : IBackupService, ISelectiveBackupServ
     {
         await using var connection = new SqliteConnection($"Data Source={_databasePath};Mode=ReadOnly;Foreign Keys=True");
         await connection.OpenAsync(cancellationToken);
-        var items = await ReadRowsAsync(connection, "SELECT * FROM items ORDER BY id;", reader => new ItemRecord(
+        await using var transaction = connection.BeginTransaction(deferred: true);
+        var items = await ReadRowsAsync(connection, transaction, "SELECT * FROM items ORDER BY id;", reader => new ItemRecord(
             reader.GetString(reader.GetOrdinal("id")),
             reader.GetInt32(reader.GetOrdinal("kind")),
             reader.GetString(reader.GetOrdinal("title")),
@@ -364,7 +375,7 @@ public sealed class PortableBackupService : IBackupService, ISelectiveBackupServ
             reader.GetString(reader.GetOrdinal("updated_at")),
             ReadNullableString(reader, "deleted_at"),
             reader.GetInt32(reader.GetOrdinal("favorite")) == 1), cancellationToken);
-        var assets = await ReadRowsAsync(connection, "SELECT * FROM assets ORDER BY id;", reader => new AssetRecord(
+        var assets = await ReadRowsAsync(connection, transaction, "SELECT * FROM assets ORDER BY id;", reader => new AssetRecord(
             reader.GetString(reader.GetOrdinal("id")),
             reader.GetString(reader.GetOrdinal("item_id")),
             reader.GetString(reader.GetOrdinal("sha256")),
@@ -373,18 +384,20 @@ public sealed class PortableBackupService : IBackupService, ISelectiveBackupServ
             reader.GetString(reader.GetOrdinal("original_name")),
             reader.GetString(reader.GetOrdinal("relative_path")),
             reader.GetString(reader.GetOrdinal("created_at"))), cancellationToken);
-        var tags = await ReadRowsAsync(connection, "SELECT * FROM tags ORDER BY id;", reader => new LabelRecord(
+        var tags = await ReadRowsAsync(connection, transaction, "SELECT * FROM tags ORDER BY id;", reader => new LabelRecord(
             reader.GetString(0), reader.GetString(1), reader.GetString(2)), cancellationToken);
-        var collections = await ReadRowsAsync(connection, "SELECT * FROM collections ORDER BY id;", reader => new LabelRecord(
+        var collections = await ReadRowsAsync(connection, transaction, "SELECT * FROM collections ORDER BY id;", reader => new LabelRecord(
             reader.GetString(0), reader.GetString(1), reader.GetString(2)), cancellationToken);
-        var tagMemberships = await ReadRowsAsync(connection, "SELECT * FROM item_tags ORDER BY membership_id;", reader => new MembershipRecord(
+        var tagMemberships = await ReadRowsAsync(connection, transaction, "SELECT * FROM item_tags ORDER BY membership_id;", reader => new MembershipRecord(
             reader.GetString(0), reader.GetString(1), reader.GetString(2), ReadNullableString(reader, "removed_at")), cancellationToken);
-        var collectionMemberships = await ReadRowsAsync(connection, "SELECT * FROM item_collections ORDER BY membership_id;", reader => new MembershipRecord(
+        var collectionMemberships = await ReadRowsAsync(connection, transaction, "SELECT * FROM item_collections ORDER BY membership_id;", reader => new MembershipRecord(
             reader.GetString(0), reader.GetString(1), reader.GetString(2), ReadNullableString(reader, "removed_at")), cancellationToken);
         await using var deviceCommand = connection.CreateCommand();
+        deviceCommand.Transaction = transaction;
         deviceCommand.CommandText = "SELECT value FROM settings WHERE key = 'device_id';";
         var deviceId = Guid.Parse((string)(await deviceCommand.ExecuteScalarAsync(cancellationToken) ??
             throw new InvalidDataException("El perfil no tiene identidad de dispositivo.")));
+        await transaction.CommitAsync(cancellationToken);
         return new Snapshot(items, assets, tags, collections, tagMemberships, collectionMemberships, deviceId);
     }
 
@@ -543,11 +556,13 @@ public sealed class PortableBackupService : IBackupService, ISelectiveBackupServ
 
     private static async Task<List<T>> ReadRowsAsync<T>(
         SqliteConnection connection,
+        SqliteTransaction transaction,
         string sql,
         Func<SqliteDataReader, T> mapper,
         CancellationToken cancellationToken)
     {
         await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = sql;
         var values = new List<T>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);

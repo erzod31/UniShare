@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "productId": "unishare",
+  "repository": "erzod31/UniShare",
+  "channel": "stable",
+  "windowsAppId": "BC1A70DC-8B2B-4B2B-8F2C-7A3EB751E3A7",
+  "androidPackage": "org.unishare.app"
+}

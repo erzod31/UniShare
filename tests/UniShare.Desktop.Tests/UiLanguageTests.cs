@@ -6,6 +6,10 @@ public sealed class UiLanguageTests
 {
     [Theory]
     [InlineData("Guardar", "Save")]
+    [InlineData("El índice de destino de Obsidian no pertenece a UniShare. Conserva el archivo o elige otra bóveda.",
+        "The destination Obsidian index does not belong to UniShare. Keep the file or choose another vault.")]
+    [InlineData("La nota de destino de Obsidian no tiene marcadores válidos de UniShare. Conserva el archivo o elige otra bóveda.",
+        "The destination Obsidian note does not have valid UniShare markers. Keep the file or choose another vault.")]
     [InlineData("Carpeta: Lecturas", "Folder: Lecturas")]
     [InlineData("Eliminar (3)", "Delete (3)")]
     [InlineData("Se aplicó la versión recibida.", "The received version was applied.")]

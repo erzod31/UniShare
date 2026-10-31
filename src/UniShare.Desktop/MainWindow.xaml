@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:UniShare.Desktop"
+        xmlns:webview="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
         Title="UniShare" Height="790" Width="1260" MinHeight="590" MinWidth="840"
         Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}"
         Loaded="Window_Loaded" SizeChanged="Window_SizeChanged" PreviewKeyDown="Window_PreviewKeyDown" AllowDrop="True"
@@ -12,6 +13,8 @@
             <ColumnDefinition x:Name="SidebarColumn" Width="220" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
+        <webview:WebView2 x:Name="TranslationEngine" Width="1" Height="1" Visibility="Hidden"
+                          IsHitTestVisible="False" Focusable="False" HorizontalAlignment="Left" VerticalAlignment="Top" />
 
         <Border Grid.Column="0" Background="{DynamicResource SidebarBackgroundBrush}"
                 BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
@@ -97,6 +100,7 @@
                     </Border>
                     <Menu Margin="0,8,0,0" Background="Transparent" Foreground="{DynamicResource PrimaryTextBrush}">
                         <MenuItem Header="Opciones y herramientas" Padding="10,8">
+                            <MenuItem Header="Actualizar UniShare…" Click="AppUpdates_Click" />
                             <MenuItem Header="Ver descargas pendientes" Click="ShowDownloads_Click" />
                             <MenuItem Header="Actualizar títulos y resúmenes" Click="RefreshOriginMetadata_Click" />
                             <MenuItem Header="Conectar teléfono…" Click="ConfigureDirectSync_Click" />
@@ -111,6 +115,9 @@
                             <MenuItem x:Name="ThemeMenuItem" Header="Tema: Sistema" Click="Theme_Click" />
                             <MenuItem x:Name="TextScaleMenuItem" Header="Tamaño del texto: Normal" Click="TextScale_Click" />
                             <MenuItem x:Name="LanguageMenuItem" Header="Idioma: Español" Click="Language_Click" />
+                            <MenuItem x:Name="TranslationMenuItem" Header="Traducir descripciones automáticamente"
+                                      IsCheckable="True" Click="Translation_Click"
+                                      ToolTip="Traducción local al idioma de Ajustes. Descarga idiomas al primer uso; el texto no sale del dispositivo." />
                         </MenuItem>
                     </Menu>
                 </StackPanel>
@@ -240,9 +247,8 @@
                                             <StackPanel Grid.Column="1" Margin="9,0,15,0">
                                                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
-                                                <local:LinkifiedTextBlock ContentText="{Binding DescriptionPreview}" Margin="0,2,0,0"
-                                                                            Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                            TextTrimming="CharacterEllipsis" />
+                                                <local:TranslatedDescriptionBlock ContentText="{Binding DescriptionPreview}" Margin="0,2,0,0"
+                                                                                  Compact="True" Foreground="{DynamicResource SecondaryTextBrush}" />
                                                 <TextBlock Text="{Binding KindLabel}" Margin="0,3,0,0" FontSize="11" Foreground="{DynamicResource PrimaryBrush}" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -274,7 +280,8 @@
                 <Border x:Name="DetailsPanel" Grid.Column="1" Background="{DynamicResource PanelBackgroundBrush}"
                         BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12">
                     <Grid>
-                        <StackPanel Margin="18" Visibility="{Binding SelectionVisibility}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" Visibility="{Binding SelectionVisibility}">
+                        <StackPanel Margin="18">
                             <Border Height="118" CornerRadius="11" Background="{DynamicResource AccentSubtleBrush}">
                                 <TextBlock Text="{Binding SelectedItem.KindShort}" FontSize="40" FontWeight="SemiBold"
                                            Foreground="{DynamicResource PrimaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
@@ -299,8 +306,7 @@
                                 </Grid>
                             </Border>
                             <TextBlock Text="Resumen / notas" Margin="0,15,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
-                            <local:LinkifiedTextBlock ContentText="{Binding SelectedItem.DescriptionLabel}"
-                                                        Margin="0,6,0,0" TextWrapping="Wrap" />
+                            <local:TranslatedDescriptionBlock ContentText="{Binding SelectedItem.Item.Description}" Margin="0,6,0,0" />
                             <TextBlock Text="{Binding SelectedItem.FavoriteLabel}" Margin="0,12,0,0" FontSize="12" Foreground="{DynamicResource SecondaryTextBrush}" />
                             <UniformGrid Columns="2" Margin="0,18,0,0">
                                 <Button Content="Abrir" Margin="0,0,5,0" Style="{StaticResource PrimaryButton}" Click="Open_Click" />
@@ -313,6 +319,7 @@
                             <Button Content="{Binding RestoreActionLabel}" Margin="0,8,0,0" Style="{StaticResource GhostButton}"
                                     Visibility="{Binding RestoreVisibility}" Click="Restore_Click" />
                         </StackPanel>
+                        </ScrollViewer>
                         <StackPanel Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding NoSelectionVisibility}">
                             <TextBlock Text="Selecciona un elemento" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" />
                             <TextBlock Text="Aquí podrás abrirlo, editarlo o guardarlo offline."

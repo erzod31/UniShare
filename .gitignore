@@ -1,5 +1,9 @@
 bin/
 obj/
+build/
+.gradle/
+.kotlin/
+node_modules/
 .vs/
 .idea/
 .codex-remote-attachments/
@@ -7,11 +11,18 @@ obj/
 *.suo
 TestResults/
 artifacts/
+output/playwright/
+.playwright-cli/
 publish/
 *.db
 *.db-shm
 *.db-wal
 profile/
+blobs/
+staging/
+recovery/
+backups/
+*.unishare.zip
 tmp/
 .env
 .env.*
@@ -26,3 +37,7 @@ direct-sync.json
 *.key
 secrets.json
 credentials.json
+
+# Machine-local operational evidence; keep it locally, outside public source snapshots.
+/docs/*DG-*.json
+/docs/cleanup-DG-*-plan.md

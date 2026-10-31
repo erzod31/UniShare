@@ -6,8 +6,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.net.UnknownHostException
+import java.security.MessageDigest
 
 class DirectSyncPolicyTest {
+    @Test fun localNetworkPermissionStartsAtAndroid17() {
+        assertFalse(LocalNetworkAccess.isPermissionRequired(36, false))
+        assertTrue(LocalNetworkAccess.isPermissionRequired(37, false))
+        assertFalse(LocalNetworkAccess.isPermissionRequired(37, true))
+    }
+
+    @Test fun sameLengthCorruptionIsNotAdvertisedAsAnAvailableBlob() {
+        val file = kotlin.io.path.createTempFile("unishare-blob-").toFile()
+        try {
+            val original = "contenido correcto".toByteArray()
+            file.writeBytes(original)
+            val hash = MessageDigest.getInstance("SHA-256").digest(original)
+                .joinToString("") { "%02x".format(it.toInt() and 0xff) }
+            assertTrue(LocalBlobIntegrity.matches(file, hash, original.size.toLong()))
+
+            val damaged = original.copyOf().also { it[0] = (it[0].toInt() xor 0xff).toByte() }
+            file.writeBytes(damaged)
+            assertFalse(LocalBlobIntegrity.matches(file, hash, original.size.toLong()))
+        } finally {
+            file.delete()
+        }
+    }
+
     @Test fun firstCheckTransfers() =
         assertTrue(DirectSyncPolicy.shouldTransfer(false, "server", null, false))
 

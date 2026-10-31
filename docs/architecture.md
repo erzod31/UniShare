@@ -11,6 +11,11 @@
 
 ## Componentes previstos
 
+Desde 0.6.23 la traducción es una vista derivada desacoplada del dominio: `IDescriptionTranslator`
+devuelve texto/idioma/estado; un worker de `shared/translation` ejecuta Bergamot en el dispositivo.
+Los hosts Windows/Android sólo sirven assets locales y descargan modelos públicos fijados. La caché
+no toca tablas, operaciones, backups ni sincronización. Véase [ADR 0033](decisions/0033-traduccion-automatica-local.md).
+
 ```text
 Windows WPF/.NET 10       Android Compose/Kotlin
           |                         |
@@ -24,8 +29,8 @@ Windows WPF/.NET 10       Android Compose/Kotlin
                                   |
                          HTTPS LAN + mTLS
 
-Chromium -> Native Host -> inbox durable
-Obsidian -> bridge de archivos inmutables
+Chromium -> API loopback autenticada -> captura local
+Obsidian -> exportación Markdown + importación explícita del bloque editable
 Backup   -> manifest + NDJSON + blobs por hash
 ```
 

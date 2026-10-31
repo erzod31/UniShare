@@ -1,4 +1,8 @@
+using System.Runtime.CompilerServices;
 using System.Windows;
+
+[assembly: InternalsVisibleTo("UniShare.Desktop.Tests")]
+[assembly: InternalsVisibleTo("UniShare.TranslationRuntimeHarness")]
 
 [assembly: ThemeInfo(
     ResourceDictionaryLocation.None,            //where theme specific resource dictionaries are located

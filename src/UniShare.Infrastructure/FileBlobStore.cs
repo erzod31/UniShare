@@ -70,7 +70,7 @@ public sealed class FileBlobStore : IBlobStore
             {
                 if (!await VerifyFileAsync(destination, hash, cancellationToken))
                 {
-                    throw new IOException("El almacén contiene un blob dañado con el mismo nombre de hash.");
+                    RepairCorruptBlob(stagingPath, destination, hash);
                 }
             }
             else
@@ -84,7 +84,7 @@ public sealed class FileBlobStore : IBlobStore
                     alreadyExisted = true;
                     if (!await VerifyFileAsync(destination, hash, cancellationToken))
                     {
-                        throw;
+                        RepairCorruptBlob(stagingPath, destination, hash);
                     }
                 }
             }
@@ -104,6 +104,20 @@ public sealed class FileBlobStore : IBlobStore
                 File.Delete(stagingPath);
             }
         }
+    }
+
+    private void RepairCorruptBlob(string verifiedStagingPath, string destination, string hash)
+    {
+        if ((File.GetAttributes(destination) & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException("No se reemplazan enlaces simbólicos del almacén.");
+        }
+
+        var recoveryRoot = Path.Combine(_profileRoot, "recovery", "corrupt-blobs");
+        Directory.CreateDirectory(recoveryRoot);
+        var recoveryPath = Path.Combine(recoveryRoot, $"{hash}-{Guid.NewGuid():N}.corrupt");
+        // Replacement and preservation of the previous bytes are one filesystem operation.
+        File.Replace(verifiedStagingPath, destination, recoveryPath);
     }
 
     public Task<bool> VerifyAsync(string sha256, CancellationToken cancellationToken = default)

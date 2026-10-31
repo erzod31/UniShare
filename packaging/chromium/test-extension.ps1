@@ -24,6 +24,23 @@ foreach ($file in $javascriptFiles) {
     }
 }
 
+$metadataTests = Join-Path $repositoryRoot "tests\chromium\metadata.test.cjs"
+$updateTests = Join-Path $repositoryRoot "tests\chromium\updates.test.cjs"
+if (Test-Path -LiteralPath $metadataTests) {
+    $previousSource = $env:UNISHARE_EXTENSION_SOURCE
+    try {
+        $env:UNISHARE_EXTENSION_SOURCE = $sourceRoot
+        & $node.Source --test $metadataTests $updateTests
+        if ($LASTEXITCODE -ne 0) {
+            throw "La extracción de metadatos no cumple los contratos compartidos."
+        }
+    }
+    finally {
+        if ($null -eq $previousSource) { Remove-Item Env:\UNISHARE_EXTENSION_SOURCE -ErrorAction SilentlyContinue }
+        else { $env:UNISHARE_EXTENSION_SOURCE = $previousSource }
+    }
+}
+
 $jsonFiles = @(Get-ChildItem -LiteralPath $sourceRoot -Filter "*.json" -File -Recurse)
 foreach ($file in $jsonFiles) {
     try {

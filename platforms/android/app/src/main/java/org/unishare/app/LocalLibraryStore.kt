@@ -156,11 +156,7 @@ class LocalLibraryStore(private val context: Context) : SQLiteOpenHelper(context
             val relativePath = "blobs/${sha256.substring(0, 2)}/${sha256.substring(2, 4)}/$sha256"
             val destination = File(context.filesDir, relativePath)
             destination.parentFile?.mkdirs()
-            if (destination.exists()) {
-                check(verifyHash(destination, sha256)) { "Existe un archivo local dañado con el mismo hash" }
-            } else {
-                check(partial.renameTo(destination)) { "No se pudo conservar el archivo local" }
-            }
+            BlobPromotion.promote(context, partial, destination, sha256, length)
 
             val now = Instant.now().toString()
             val item = SavedItem(UUID.randomUUID().toString(), if (sourceUrl == null) 2 else 3,
@@ -369,11 +365,8 @@ class LocalLibraryStore(private val context: Context) : SQLiteOpenHelper(context
             "blobs/${content.sha256.substring(0, 2)}/${content.sha256.substring(2, 4)}/${content.sha256}"
         val destination = File(context.filesDir, relativePath)
         destination.parentFile?.mkdirs()
-        if (destination.exists()) {
-            check(verifyHash(destination, content.sha256)) { "Existe un archivo local dañado con el mismo hash" }
-            content.file.delete()
-        } else {
-            check(content.file.renameTo(destination)) { "No se pudo conservar la copia offline" }
+        if (!BlobPromotion.promote(context, content.file, destination, content.sha256, content.byteLength)) {
+            if (content.file.canonicalPath != destination.canonicalPath) content.file.delete()
         }
 
         val now = Instant.now().toString()
@@ -435,8 +428,8 @@ class LocalLibraryStore(private val context: Context) : SQLiteOpenHelper(context
             currentDescription = cursor.getString(4)
         }
         val values = ContentValues()
-        val provisionalTitle = originalUrl?.let(SharePayload::titleFromUrl)
-        if (!metadata.title.isNullOrBlank() && currentTitle == provisionalTitle) values.put("title", metadata.title)
+        val resolvedTitle = originalUrl?.let { metadata.resolveTitle(currentTitle, it) } ?: currentTitle
+        if (resolvedTitle != currentTitle) values.put("title", resolvedTitle)
         if (currentSource.isNullOrBlank() && !metadata.source.isNullOrBlank()) values.put("source", metadata.source)
         if (currentAuthor.isNullOrBlank() && !metadata.author.isNullOrBlank()) values.put("author", metadata.author)
         val resolvedDescription = metadata.resolveDescription(currentDescription)

@@ -5,7 +5,7 @@ namespace UniShare.Infrastructure;
 
 public static class LibraryProfileValidator
 {
-    private const int CurrentSchemaVersion = 4;
+    private const int CurrentSchemaVersion = 5;
     private static readonly string[] RequiredTables = ["schema_info", "settings", "items", "assets"];
 
     public static async Task ValidateExistingAsync(

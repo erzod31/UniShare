@@ -70,6 +70,34 @@ public sealed class PortableBackupServiceTests
     }
 
     [Fact]
+    public async Task DeltaRetransmitsARequestedBlobEvenWhenItsItemHasNoNewOperation()
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = Path.Combine(temporary.Path, "profile");
+        var repository = new SqliteLibraryRepository(Path.Combine(profile, "library.db"));
+        var library = new LibraryService(repository, new FileBlobStore(profile), TimeProvider.System);
+        await library.InitializeAsync(TestContext.Current.CancellationToken);
+        var source = Path.Combine(temporary.Path, "document.txt");
+        await File.WriteAllTextAsync(source, "retransmitir exactamente", TestContext.Current.CancellationToken);
+        var item = await library.CreateAsync(new CreateItemRequest("Sin cambios", null, source,
+            Tags: ["Conservar"], Collections: ["Carpeta"]), TestContext.Current.CancellationToken);
+        await library.CreateAsync(new CreateItemRequest("No relacionado", "https://example.invalid/other", null), TestContext.Current.CancellationToken);
+        var asset = Assert.Single(await repository.GetAssetsAsync(item.Id, TestContext.Current.CancellationToken));
+        var package = Path.Combine(temporary.Path, "repair-delta.zip");
+
+        var summary = await new PortableBackupService(profile).ExportDeltaAsync(
+            package, new HashSet<string>(), new HashSet<string> { asset.Sha256 }, new HashSet<string> { asset.Sha256 },
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, summary.ItemCount);
+        Assert.Equal(1, summary.BlobCount);
+        using var archive = ZipFile.OpenRead(package);
+        Assert.NotNull(archive.GetEntry(asset.RelativePath));
+        using var memberships = new StreamReader(archive.GetEntry("metadata/collection_memberships.ndjson")!.Open());
+        Assert.Contains(item.Id.ToString("D"), await memberships.ReadToEndAsync(TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
     public async Task InspectRejectsModifiedEntryAndRestoreRefusesExistingDestination()
     {
         using var temporary = new TemporaryDirectory();

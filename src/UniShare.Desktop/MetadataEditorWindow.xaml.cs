@@ -45,6 +45,7 @@ public partial class MetadataEditorWindow : Window
         DescriptionPreview.Visibility = Visibility.Collapsed;
         ModifyDescriptionButton.Visibility = Visibility.Collapsed;
         DescriptionBox.Visibility = Visibility.Visible;
+        OriginalEditingHint.Visibility = Visibility.Visible;
         DescriptionBox.Focus();
         DescriptionBox.CaretIndex = DescriptionBox.Text.Length;
     }

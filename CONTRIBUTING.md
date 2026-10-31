@@ -26,7 +26,7 @@ Para Android:
 
 ```powershell
 cd platforms/android
-.\gradlew.bat testDebugUnitTest testReleaseUnitTest lintRelease assembleRelease
+.\gradlew.bat test lintRelease assembleRelease
 ```
 
 Mantén los cambios pequeños, añade pruebas que demuestren el comportamiento y actualiza la documentación

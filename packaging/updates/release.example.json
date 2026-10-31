@@ -1,0 +1,23 @@
+{
+  "sampleOnly": true,
+  "draft": true,
+  "prerelease": false,
+  "tag_name": "vREPLACE_WITH_VERSION",
+  "html_url": "REPLACE_WITH_GITHUB_RELEASE_URL_AFTER_PUBLICATION",
+  "assets": [
+    {
+      "name": "UniShare-Windows-Setup-REPLACE_WITH_VERSION.exe",
+      "state": "uploaded",
+      "size": 0,
+      "digest": "REPLACE_WITH_GITHUB_SHA256_DIGEST",
+      "browser_download_url": "REPLACE_WITH_ACTUAL_RELEASE_ASSET_URL"
+    },
+    {
+      "name": "UniShare-Android-REPLACE_WITH_VERSION.apk",
+      "state": "uploaded",
+      "size": 0,
+      "digest": "REPLACE_WITH_GITHUB_SHA256_DIGEST",
+      "browser_download_url": "REPLACE_WITH_ACTUAL_RELEASE_ASSET_URL"
+    }
+  ]
+}

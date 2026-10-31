@@ -9,9 +9,9 @@ using UniShare.Infrastructure;
 
 namespace UniShare.Desktop;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Window, IDisposable
 {
-    private const string OriginMetadataMigration = "3";
+    private const string OriginMetadataMigration = "7";
     private readonly MainWindowViewModel _viewModel;
     private readonly LibraryService _library;
     private readonly IBlobStore _blobStore;
@@ -25,6 +25,7 @@ public partial class MainWindow : Window
     private readonly string _profileRoot;
     private bool _isCapturing;
     private bool _isRefreshingOriginMetadata;
+    private readonly LocalDescriptionTranslator _translator;
 
     private static MessageBoxResult ShowMessage(
         string message,
@@ -60,6 +61,10 @@ public partial class MainWindow : Window
         _profileRoot = Path.GetFullPath(profileRoot);
         _viewModel = new MainWindowViewModel(library);
         InitializeComponent();
+        _translator = new LocalDescriptionTranslator(TranslationEngine, _profileRoot);
+        DescriptionTranslation.Initialize(_translator, _profileRoot);
+        TranslationMenuItem.IsChecked = DescriptionTranslation.Enabled;
+        Closed += (_, _) => Dispose();
         DataContext = _viewModel;
         ThemeMenuItem.Header = UiLanguage.Choice == UiLanguageChoice.English
             ? $"Theme: {DesktopTheme.Label}"
@@ -88,6 +93,31 @@ public partial class MainWindow : Window
 
     private async void RefreshOriginMetadata_Click(object sender, RoutedEventArgs e) =>
         await RefreshOriginMetadataAsync(automaticOnly: false);
+
+    private void AppUpdates_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var window = new AppUpdatesWindow(_profileRoot) { Owner = this };
+            window.ShowDialog();
+        }
+        catch (Exception exception) when (exception is IOException or InvalidOperationException or System.Text.Json.JsonException or KeyNotFoundException or ArgumentException or System.Security.Cryptography.CryptographicException)
+        {
+            ShowMessage("No se pudo abrir el actualizador de UniShare.", "UniShare", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void Translation_Click(object sender, RoutedEventArgs e)
+    {
+        DescriptionTranslation.Toggle();
+        TranslationMenuItem.IsChecked = DescriptionTranslation.Enabled;
+    }
+
+    public void Dispose()
+    {
+        _translator.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     private async Task RefreshOriginMetadataAsync(bool automaticOnly)
     {
@@ -123,19 +153,22 @@ public partial class MainWindow : Window
 
             var updated = 0;
             var unavailable = 0;
-            foreach (var item in candidates)
+            foreach (var candidate in candidates)
             {
                 try
                 {
-                    var metadata = await _downloads.FetchMetadataAsync(new Uri(item.OriginalUrl!));
+                    var metadata = await _downloads.FetchMetadataAsync(new Uri(candidate.OriginalUrl!));
                     if (metadata is null)
                     {
                         continue;
                     }
 
-                    var title = IsAutomaticTitle(item) && !string.IsNullOrWhiteSpace(metadata.Title)
-                        ? metadata.Title
-                        : item.Title;
+                    var item = await _library.GetAsync(candidate.Id);
+                    if (item is null || item.DeletedAt.HasValue || item.OriginalUrl != candidate.OriginalUrl)
+                    {
+                        continue;
+                    }
+                    var title = metadata.ResolveTitle(item.Title, new Uri(item.OriginalUrl!));
                     var source = string.IsNullOrWhiteSpace(item.Source) ? metadata.Source : item.Source;
                     var author = string.IsNullOrWhiteSpace(item.Author) ? metadata.Author : item.Author;
                     var description = metadata.ResolveDescription(item.Description);
@@ -186,13 +219,6 @@ public partial class MainWindow : Window
             _isRefreshingOriginMetadata = false;
         }
     }
-
-    private static bool IsAutomaticTitle(UniShare.Domain.LibraryItem item) =>
-        item.OriginalUrl is not null &&
-        string.Equals(
-            item.Title,
-            LinkCaptureDefaults.TitleFromUrl(new Uri(item.OriginalUrl)),
-            StringComparison.Ordinal);
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e) =>
         ApplyResponsiveLayout(e.NewSize.Width);
@@ -533,15 +559,17 @@ public partial class MainWindow : Window
                     try
                     {
                         var metadata = await _downloads.FetchMetadataAsync(uri);
-                        if (metadata is not null)
+                        var current = await _library.GetAsync(item.Id);
+                        if (metadata is not null && current is { DeletedAt: null, OriginalUrl: not null } &&
+                            current.OriginalUrl == item.OriginalUrl)
                         {
                             item = await _library.UpdateAsync(
                                 item.Id,
-                                metadata.Title ?? item.Title,
-                                metadata.Source,
-                                metadata.Author,
-                                metadata.Description,
-                                item.Favorite);
+                                metadata.ResolveTitle(current.Title, uri),
+                                string.IsNullOrWhiteSpace(current.Source) ? metadata.Source : current.Source,
+                                string.IsNullOrWhiteSpace(current.Author) ? metadata.Author : current.Author,
+                                metadata.ResolveDescription(current.Description),
+                                current.Favorite);
                         }
                     }
                     catch (Exception exception)

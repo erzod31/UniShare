@@ -90,14 +90,16 @@ Criterios: APK reproducible; pruebas en emulador; pruebas físicas marcadas con 
 
 Estado: funcional en emulador. El APK Kotlin/Compose crea enlaces, archivos e híbridos; permite buscar,
 editar todos los metadatos, etiquetas, colecciones y favorito, archivar/restaurar, abrir el contenido y
-crear/reintentar una copia offline. Sharesheet, SAF, persistencia, migraciones v1→v4, respaldo portable,
+crear/reintentar una copia offline. Sharesheet, SAF, persistencia, migraciones v1→v5, respaldo portable,
 restauración no destructiva y sincronización directa comparten UUID, organización y blobs. Pasan build,
 lint y pruebas en debug y release. 0.6.10 valida por firma los archivos SAF antes de promover el CAS,
 rechaza contenido web activo o discordante y conserva visibles por separado los errores locales y de
 sincronización. La persistencia usa `SQLiteOpenHelper` con migraciones
 verificadas; migrar a Room no aporta una capacidad visible y no es un requisito pendiente. La
 sincronización en teléfono fue verificada por el usuario tanto en Wi-Fi como con datos móviles; quedan
-NO VERIFICADOS los recorridos físicos completos de Sharesheet, SAF y TalkBack.
+NO VERIFICADOS los recorridos físicos completos de Sharesheet, SAF y TalkBack. En 0.6.17 la compilación
+adopta API 37/AGP 9, gestiona el permiso de red local de Android 17 y verifica por hash los blobs
+anunciados. El diálogo y el transporte en Android 17 físico permanecen **NO VERIFICADOS**.
 
 ## H8 - Integración Windows
 
@@ -121,8 +123,9 @@ reintentos. La versión 0.4.3 evita transferir durante sondeos sin cambios, nego
 blobs ausentes. Las retiradas de membresía usan observed-remove por UUID; una re-alta concurrente sobrevive.
 Conflictos explícitos y baselines evitan LWW. En 0.6.9 un registro de operaciones selecciona agregados
 incrementales, los cursores se confirman después del commit y los reintentos no avanzan el ACK. Un cursor
-restaurado o una identidad nueva fuerza un snapshot de recuperación. Faltan revocación/rotación en UI y
-property tests extensivos; corresponden al endurecimiento aplazado. El usuario verificó el transporte real
+restaurado o una identidad nueva fuerza un snapshot de recuperación. En 0.6.17 la revisión remota pasa a
+ser lógica y Android valida identidad, cursores y ACK antes de incorporar la respuesta. Faltan
+revocación/rotación en UI y property tests extensivos; corresponden al endurecimiento aplazado. El usuario verificó el transporte real
 por Wi-Fi y datos móviles el 2026-09-26.
 
 ## H10 - Extensión y Obsidian
@@ -135,7 +138,9 @@ Estado: implementado y validado en Edge. La extensión MV3 usa la API local aute
 el endpoint tiene prueba de autorización e integración. Obsidian exporta notas/adjuntos por UUID, conserva
 el bloque editable e importa explícitamente sólo ese bloque; la segunda importación es un no-op probado.
 En 0.6.10 un perfil Edge aislado verificó opciones, popup, pestaña HTTP, resumen y copia offline inerte.
-Obsidian móvil permanece como prueba manual.
+Desde 0.6.17 los adjuntos Obsidian se verifican por SHA-256, se reparan si están dañados y se retiran
+únicamente notas/adjuntos inequívocamente gestionados que dejaron de estar activos. Obsidian móvil
+permanece como prueba manual.
 
 ## H11 - Endurecimiento y entrega
 
@@ -148,6 +153,16 @@ Criterios: matriz final completa, cero errores críticos conocidos y todas las p
 
 ## Orden inmediato
 
-1. Completar en hardware real Sharesheet, SAF, TalkBack y el recorrido visual de la extensión.
+1. Completar en hardware real Sharesheet, SAF y TalkBack, además de Narrador y los recorridos visuales
+   Windows/Obsidian autorizados. La extensión ya tiene recorrido Edge aislado verificado en 0.6.10.
 2. Publicar la extensión en Edge Add-ons cuando el propietario disponga de la cuenta y la URL de privacidad.
 3. Retomar el hito de seguridad aplazado sólo después de aceptar la entrega funcional.
+
+La continuación 0.6.19 cierra conservación de notas Obsidian y longitudes de descarga Android con
+regresiones antes/después. El recorrido visual Obsidian sigue pendiente: abrirlo sin perfil aislado fue
+bloqueado por riesgo de mostrar el vault habitual, no por ausencia de la aplicación instalada.
+
+La continuación 0.6.20 corrige F-12 en Windows, Android y Chromium: pies originales de TikTok actual
+de escritorio/móvil y legacy, descripciones multimedia/sociales y asociación al post exacto. La suite
+comparte fixtures entre plataformas y añade una comprobación HTTP pública con los agentes reales.
+No se promete recuperar contenido privado, eliminado ni bloqueado por el proveedor.

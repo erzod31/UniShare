@@ -11,10 +11,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -46,6 +48,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
@@ -59,10 +62,12 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Modifier
@@ -99,6 +104,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.draw.alpha
 
 private enum class HomeSection(val label: String, val symbol: String) {
     LIBRARY("Biblioteca", "▣"),
@@ -145,7 +153,7 @@ private data class LibraryRefreshSnapshot(
 
 class MainActivity : ComponentActivity() {
     private companion object {
-        const val ORIGIN_METADATA_MIGRATION = 3
+        const val ORIGIN_METADATA_MIGRATION = 7
         const val ORIGIN_METADATA_PREFERENCES = "origin_metadata_refresh"
     }
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -172,6 +180,8 @@ class MainActivity : ComponentActivity() {
     private var editingAuthor by mutableStateOf("")
     private var editingDescription by mutableStateOf("")
     private var editingDescriptionUnlocked by mutableStateOf(false)
+    private var descriptionTranslator: LocalDescriptionTranslator? = null
+    private var automaticTranslation by mutableStateOf(true)
     private var editingTags by mutableStateOf("")
     private var editingCollections by mutableStateOf("")
     private var editingFavorite by mutableStateOf(false)
@@ -197,6 +207,25 @@ class MainActivity : ComponentActivity() {
     private var pollingJob: Job? = null
     private var themePreference by mutableStateOf(ThemePreference.SYSTEM)
     private var uiLanguage by mutableStateOf(UiLanguageChoice.SPANISH)
+    private var localNetworkPermissionRequestInFlight = false
+    private var localNetworkPermissionPromptedThisSession = false
+    private var pendingPermissionSyncShowSuccess = false
+    private val localNetworkPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            localNetworkPermissionRequestInFlight = false
+            localNetworkPermissionPromptedThisSession = true
+            val showSuccess = pendingPermissionSyncShowSuccess
+            pendingPermissionSyncShowSuccess = false
+            if (granted) {
+                status = "Permiso de red local concedido."
+                synchronizeDirect(showSuccess)
+            } else {
+                val message = "Sin permiso de red local, Android no puede sincronizar directamente."
+                DirectSyncPreferences.writeLastResult(this, "pendiente: $message")
+                lastSyncResult = DirectSyncPreferences.lastResult(this).orEmpty()
+                syncStatus = "Sincronización pendiente: $message"
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -206,6 +235,21 @@ class MainActivity : ComponentActivity() {
         themePreference = ThemeSettings.load(this)
         uiLanguage = UiLanguageSettings.load(this)
         UiStrings.current = uiLanguage
+        automaticTranslation = DescriptionTranslationSettings.load(this)
+        // Translation is optional: a disabled/missing system WebView must not prevent library use.
+        descriptionTranslator = try { LocalDescriptionTranslator(this) } catch (_: Exception) { null }
+        if (savedInstanceState != null) {
+            url = savedInstanceState.getString("draft.url").orEmpty()
+            quickCollection = savedInstanceState.getString("draft.collection").orEmpty()
+            saveOffline = savedInstanceState.getBoolean("draft.offline")
+            captureExpanded = savedInstanceState.getBoolean("draft.expanded")
+            pendingFileUrl = savedInstanceState.getString("draft.fileUrl")
+            query = savedInstanceState.getString("library.query").orEmpty()
+            favoritesOnly = savedInstanceState.getBoolean("library.favorites")
+            offlineOnly = savedInstanceState.getBoolean("library.offline")
+            showArchived = savedInstanceState.getBoolean("library.trash")
+            selectedCollection = savedInstanceState.getString("library.collection")
+        }
         if (savedInstanceState == null) {
             val pairingIntent = handlePairingIntent(intent)
             if (!pairingIntent) {
@@ -221,7 +265,7 @@ class MainActivity : ComponentActivity() {
             syncConfigured = true
         }
         lastSyncResult = DirectSyncPreferences.lastResult(this).orEmpty()
-        setContent { UniShareTheme(themePreference) { LibraryScreen() } }
+        setContent { UniShareTheme(themePreference, window) { LibraryScreen() } }
         activityScope.launch(Dispatchers.IO) { store.collectOrphanedBlobs() }
         DirectSyncScheduler.schedule(this)
         refresh()
@@ -247,6 +291,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("draft.url", url)
+        outState.putString("draft.collection", quickCollection)
+        outState.putBoolean("draft.offline", saveOffline)
+        outState.putBoolean("draft.expanded", captureExpanded)
+        outState.putString("draft.fileUrl", pendingFileUrl)
+        outState.putString("library.query", query)
+        outState.putBoolean("library.favorites", favoritesOnly)
+        outState.putBoolean("library.offline", offlineOnly)
+        outState.putBoolean("library.trash", showArchived)
+        outState.putString("library.collection", selectedCollection)
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onStop() {
         pollingJob?.cancel()
         pollingJob = null
@@ -266,6 +324,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         activityScope.cancel()
+        descriptionTranslator?.close()
         super.onDestroy()
     }
 
@@ -697,6 +756,20 @@ class MainActivity : ComponentActivity() {
 
     private fun synchronizeDirect(showSuccess: Boolean) {
         val settings = DirectSyncPreferences.load(this) ?: return
+        if (!LocalNetworkAccess.isGranted(this)) {
+            val message = "UniShare necesita permiso de red local para sincronizar directamente."
+            DirectSyncPreferences.writeLastResult(this, "pendiente: $message")
+            lastSyncResult = DirectSyncPreferences.lastResult(this).orEmpty()
+            syncStatus = "Sincronización pendiente: $message"
+            pendingPermissionSyncShowSuccess = pendingPermissionSyncShowSuccess || showSuccess
+            if (!localNetworkPermissionRequestInFlight &&
+                (!localNetworkPermissionPromptedThisSession || showSuccess)
+            ) {
+                localNetworkPermissionRequestInFlight = true
+                localNetworkPermissionLauncher.launch(LocalNetworkAccess.PERMISSION)
+            }
+            return
+        }
         if (isSyncing) return
         isSyncing = true
         activityScope.launch {
@@ -725,6 +798,13 @@ class MainActivity : ComponentActivity() {
 
     private fun pollDirectChanges() {
         val settings = DirectSyncPreferences.load(this) ?: return
+        if (!LocalNetworkAccess.isGranted(this)) {
+            val message = "UniShare necesita permiso de red local para sincronizar directamente."
+            DirectSyncPreferences.writeLastResult(this, "pendiente: $message")
+            lastSyncResult = DirectSyncPreferences.lastResult(this).orEmpty()
+            syncStatus = "Sincronización pendiente: $message"
+            return
+        }
         if (isSyncing) return
         activityScope.launch {
             try {
@@ -818,6 +898,43 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    private fun TranslatedSummaryText(text: String, modifier: Modifier = Modifier, compact: Boolean = false) {
+        val target = if (uiLanguage == UiLanguageChoice.ENGLISH) "en" else "es"
+        var result by remember(text, target, automaticTranslation) { mutableStateOf<DescriptionTranslationResult?>(null) }
+        var original by remember(text, target, automaticTranslation) { mutableStateOf(false) }
+        var retry by remember(text, target) { mutableIntStateOf(0) }
+        LaunchedEffect(text, target, automaticTranslation, retry) {
+            result = null
+            if (automaticTranslation && text.isNotBlank() && text.length <= 100_000) {
+                result = descriptionTranslator?.translate(text, target)
+                    ?: DescriptionTranslationResult("unavailable", text, "", target)
+            }
+        }
+        Column(modifier = modifier) {
+            val current = result
+            ClickableSummaryText(
+                if (current?.isTranslated == true && !original) current.text else text,
+                maxLines = if (compact) 2 else Int.MAX_VALUE,
+            )
+            if (!compact && automaticTranslation && text.isNotBlank()) {
+                when (current?.status) {
+                    "translated" -> {
+                        Text(if (original) "Descripción original" else "Traducción automática local", style = MaterialTheme.typography.labelSmall)
+                        TextButton(onClick = { original = !original }) { Text(if (original) "Ver traducción" else "Ver original") }
+                    }
+                    "unsupported" -> Text("Idioma no identificado o no compatible. Se muestra el original.", style = MaterialTheme.typography.labelSmall)
+                    "unavailable" -> {
+                        Text("Traducción no disponible. Se muestra el original. Comprueba la conexión para descargar los idiomas.", style = MaterialTheme.typography.labelSmall)
+                        TextButton(onClick = { retry++ }) { Text("Reintentar traducción") }
+                    }
+                    "original" -> Unit
+                    else -> Text("Traduciendo en el dispositivo… La primera vez se descargan los idiomas.", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+
+    @Composable
     private fun LibraryItemCard(item: SavedItem) {
         val selected = item.id in selectedItemIds
         val symbol = when (item.kind) {
@@ -895,10 +1012,10 @@ class MainActivity : ComponentActivity() {
                         maxLines = 1,
                     )
                     if (!item.description.isNullOrBlank()) {
-                        ClickableSummaryText(
+                        TranslatedSummaryText(
                             text = item.description,
                             modifier = Modifier.padding(top = 2.dp),
-                            maxLines = 2,
+                            compact = true,
                         )
                     }
                     val folder = item.collections.firstOrNull()
@@ -935,8 +1052,11 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun LibraryScreen() {
         UiStrings.current = uiLanguage
+        descriptionTranslator?.let { engine ->
+            AndroidView(factory = { engine.view }, modifier = Modifier.size(1.dp).alpha(0f))
+        }
         var optionsExpanded by remember { mutableStateOf(false) }
-        var section by remember { mutableStateOf(HomeSection.LIBRARY) }
+        var section by rememberSaveable { mutableStateOf(HomeSection.LIBRARY) }
         val configuration = LocalConfiguration.current
         val windowInfo = LocalWindowInfo.current
         val density = LocalDensity.current
@@ -1054,10 +1174,11 @@ class MainActivity : ComponentActivity() {
             bottomBar = {
                 NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
                     HomeSection.entries.forEach { destination ->
+                        val destinationLabel = UiStrings.translate(destination.label)
                         NavigationBarItem(
                             selected = section == destination,
                             onClick = { clearSelection(); section = destination },
-                            modifier = Modifier.semantics { contentDescription = UiStrings.translate(destination.label) },
+                            modifier = Modifier.semantics { contentDescription = destinationLabel },
                             icon = {
                                 Text(
                                     destination.symbol,
@@ -1371,6 +1492,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
+                        AppUpdatesPanel(this@MainActivity, uiLanguage)
                         Text("Datos y dispositivos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                         OutlinedButton(onClick = { showSyncSettings = true }, modifier = Modifier.fillMaxWidth()) {
                             Text(if (syncConfigured) "Cambiar conexión con Windows" else "Conectar con Windows")
@@ -1411,6 +1533,17 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(if (uiLanguage == UiLanguageChoice.ENGLISH) "Language: English" else "Idioma: Español")
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = automaticTranslation, onCheckedChange = {
+                                automaticTranslation = it
+                                DescriptionTranslationSettings.save(this@MainActivity, it)
+                            }, modifier = Modifier.semantics {
+                                contentDescription = UiStrings.translate("Traducir descripciones automáticamente")
+                            })
+                            Text("Traducir descripciones automáticamente", modifier = Modifier.weight(1f))
+                        }
+                        Text("Traducción local al idioma de Ajustes. Descarga idiomas al primer uso; el texto no sale del dispositivo.",
+                            style = MaterialTheme.typography.bodySmall)
                         FilterChip(
                             selected = showArchived,
                             onClick = { showArchived = !showArchived; loadedItemLimit = 200; refresh() },
@@ -1425,7 +1558,10 @@ class MainActivity : ComponentActivity() {
         }
 
         if (captureExpanded) {
-            ModalBottomSheet(onDismissRequest = { captureExpanded = false }) {
+            ModalBottomSheet(
+                onDismissRequest = { captureExpanded = false },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1457,7 +1593,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(14.dp),
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChip(selected = !saveOffline, onClick = { saveOffline = false }, label = { Text("Solo enlace") })
                         FilterChip(selected = saveOffline, onClick = { saveOffline = true }, label = { Text("Copia offline") })
                     }
@@ -1543,6 +1679,8 @@ class MainActivity : ComponentActivity() {
                                 label = { Text("Editar resumen o notas") },
                                 minLines = 3,
                             )
+                            Text("Editas la descripción original. La traducción se actualiza al guardar.",
+                                style = MaterialTheme.typography.labelSmall)
                             val summaryLinks = remember(editingDescription) {
                                 SummaryLinkParser.find(editingDescription).distinctBy { it.url }
                             }
@@ -1558,7 +1696,7 @@ class MainActivity : ComponentActivity() {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             } else {
-                                ClickableSummaryText(editingDescription)
+                                TranslatedSummaryText(editingDescription)
                             }
                             OutlinedButton(onClick = { editingDescriptionUnlocked = true }) {
                                 Text("Modificar resumen")
@@ -1731,11 +1869,17 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun UniShareTheme(preference: ThemePreference, content: @Composable () -> Unit) {
+private fun UniShareTheme(preference: ThemePreference, window: android.view.Window, content: @Composable () -> Unit) {
     val dark = when (preference) {
         ThemePreference.SYSTEM -> isSystemInDarkTheme()
         ThemePreference.LIGHT -> false
         ThemePreference.DARK -> true
+    }
+    SideEffect {
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
     }
     val colors = if (dark) {
         darkColorScheme(

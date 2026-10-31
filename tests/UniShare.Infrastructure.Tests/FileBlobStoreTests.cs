@@ -44,6 +44,29 @@ public sealed class FileBlobStoreTests
     }
 
     [Fact]
+    public async Task ReimportRepairsCorruptBlobAndPreservesThePreviousBytesForRecovery()
+    {
+        using var temporary = new TemporaryDirectory();
+        var source = Path.Combine(temporary.Path, "original.txt");
+        var correct = Encoding.UTF8.GetBytes("contenido original");
+        var corrupt = new byte[correct.Length];
+        await File.WriteAllBytesAsync(source, correct, TestContext.Current.CancellationToken);
+        var root = Path.Combine(temporary.Path, "profile");
+        var store = new FileBlobStore(root);
+        var first = await store.ImportFileAsync(source, TestContext.Current.CancellationToken);
+        await File.WriteAllBytesAsync(store.GetAbsolutePath(first.RelativePath), corrupt, TestContext.Current.CancellationToken);
+
+        var repaired = await store.ImportFileAsync(source, TestContext.Current.CancellationToken);
+
+        Assert.Equal(first.Sha256, repaired.Sha256);
+        Assert.True(await store.VerifyAsync(first.Sha256, TestContext.Current.CancellationToken));
+        Assert.Equal(correct, await File.ReadAllBytesAsync(store.GetAbsolutePath(first.RelativePath), TestContext.Current.CancellationToken));
+        var recovery = Assert.Single(Directory.EnumerateFiles(Path.Combine(root, "recovery", "corrupt-blobs")));
+        Assert.Equal(corrupt, await File.ReadAllBytesAsync(recovery, TestContext.Current.CancellationToken));
+        Assert.Empty(Directory.EnumerateFiles(Path.Combine(root, "staging")));
+    }
+
+    [Fact]
     public void GetAbsolutePathRejectsTraversal()
     {
         using var temporary = new TemporaryDirectory();

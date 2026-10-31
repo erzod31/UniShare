@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Data.Sqlite;
 using UniShare.Application;
 using UniShare.Domain;
 
@@ -65,6 +66,40 @@ public sealed class DirectSyncServerTests
 
         Assert.Equal(2, (await windows.Library.SearchAsync(null, cancellationToken: TestContext.Current.CancellationToken)).Count);
         Assert.Equal(2, (await android.Library.SearchAsync(null, cancellationToken: TestContext.Current.CancellationToken)).Count);
+    }
+
+    [Fact]
+    public async Task StatusRevisionTracksLibraryChangesButNotWalMaintenance()
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = await CreateProfileAsync(temporary.Path, "logical-revision");
+        var port = ReservePort();
+        await using var server = new DirectSyncServer(profile.Root, profile.Backup, profile.Sync, port);
+        await server.StartAsync(TestContext.Current.CancellationToken);
+        using var client = new HttpClient { BaseAddress = new Uri(server.Configuration.LocalAddress) };
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", server.Configuration.PairingKey);
+
+        var initial = await ReadRevisionAsync(client);
+        var item = await profile.Library.CreateAsync(
+            new CreateItemRequest("Revisión", "https://example.com/revision", null),
+            TestContext.Current.CancellationToken);
+        var afterCreate = await ReadRevisionAsync(client);
+        Assert.NotEqual(initial, afterCreate);
+
+        await using (var connection = new SqliteConnection(
+            $"Data Source={Path.Combine(profile.Root, "library.db")};Foreign Keys=True"))
+        {
+            await connection.OpenAsync(TestContext.Current.CancellationToken);
+            await using var checkpoint = connection.CreateCommand();
+            checkpoint.CommandText = "PRAGMA wal_checkpoint(TRUNCATE);";
+            await checkpoint.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+        Assert.Equal(afterCreate, await ReadRevisionAsync(client));
+
+        await profile.Library.ReplaceOrganizationAsync(
+            item.Id, ["revisión"], ["pruebas"], TestContext.Current.CancellationToken);
+        Assert.NotEqual(afterCreate, await ReadRevisionAsync(client));
     }
 
     [Fact]
@@ -138,14 +173,15 @@ public sealed class DirectSyncServerTests
     }
 
     [Fact]
-    public async Task BlobNegotiationReportsOnlyContentMissingOnWindows()
+    public async Task BlobNegotiationReportsMissingOrCorruptContentOnWindows()
     {
         using var temporary = new TemporaryDirectory();
         var profile = await CreateProfileAsync(temporary.Path, "blob-plan");
         var source = Path.Combine(temporary.Path, "known.bin");
         await File.WriteAllBytesAsync(source, Encoding.UTF8.GetBytes("contenido conocido"), TestContext.Current.CancellationToken);
         var item = await profile.Library.CreateAsync(new CreateItemRequest("Conocido", null, source), TestContext.Current.CancellationToken);
-        var known = Assert.Single(await profile.Library.GetAssetsAsync(item.Id, TestContext.Current.CancellationToken)).Sha256;
+        var asset = Assert.Single(await profile.Library.GetAssetsAsync(item.Id, TestContext.Current.CancellationToken));
+        var known = asset.Sha256;
         var missing = new string('a', 64);
         var port = ReservePort();
         await using var server = new DirectSyncServer(profile.Root, profile.Backup, profile.Sync, port);
@@ -159,6 +195,19 @@ public sealed class DirectSyncServerTests
         response.EnsureSuccessStatusCode();
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
         Assert.Equal(missing, Assert.Single(body.RootElement.GetProperty("missing").EnumerateArray()).GetString());
+
+        var blobPath = profile.BlobStore.GetAbsolutePath(asset.RelativePath);
+        var bytes = await File.ReadAllBytesAsync(blobPath, TestContext.Current.CancellationToken);
+        bytes[0] ^= 0xff;
+        await File.WriteAllBytesAsync(blobPath, bytes, TestContext.Current.CancellationToken);
+        using var corruptResponse = await client.PostAsJsonAsync(
+            "/api/v1/blobs/missing", new { hashes = new[] { known } },
+            cancellationToken: TestContext.Current.CancellationToken);
+        corruptResponse.EnsureSuccessStatusCode();
+        using var corruptBody = JsonDocument.Parse(
+            await corruptResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(known,
+            Assert.Single(corruptBody.RootElement.GetProperty("missing").EnumerateArray()).GetString());
     }
 
     [Fact]
@@ -295,6 +344,16 @@ public sealed class DirectSyncServerTests
         await using var output = File.Create(responsePackage);
         await response.Content.CopyToAsync(output);
         return responsePackage;
+    }
+
+    private static async Task<string> ReadRevisionAsync(HttpClient client)
+    {
+        using var response = await client.GetAsync(
+            "/api/v1/status", TestContext.Current.CancellationToken);
+        response.EnsureSuccessStatusCode();
+        using var body = JsonDocument.Parse(
+            await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        return body.RootElement.GetProperty("revision").GetString()!;
     }
 
     private static async Task<PackageResponse> PostPackageAsync(

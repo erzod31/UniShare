@@ -29,13 +29,15 @@ public sealed class MetadataEditorWindowTests
                 description: "Consulta https://example.com/guide.");
             var window = new MetadataEditorWindow(item, new ItemOrganization([], []));
             var preview = Assert.IsType<Border>(window.FindName("DescriptionPreview"));
-            var previewText = Assert.IsType<LinkifiedTextBlock>(window.FindName("DescriptionPreviewText"));
+            var previewText = Assert.IsType<TranslatedDescriptionBlock>(window.FindName("DescriptionPreviewText"));
+            var renderedText = Assert.IsType<LinkifiedTextBlock>(Assert.IsType<StackPanel>(previewText.Content).Children[0]);
             var modify = Assert.IsType<Button>(window.FindName("ModifyDescriptionButton"));
             var editor = Assert.IsType<TextBox>(window.FindName("DescriptionBox"));
 
             Assert.Equal(Visibility.Visible, preview.Visibility);
             Assert.Equal(Visibility.Collapsed, editor.Visibility);
-            Assert.Single(previewText.Inlines.OfType<Hyperlink>());
+            Assert.Single(renderedText.Inlines.OfType<Hyperlink>());
+            Assert.Equal(item.Description, previewText.ContentText);
 
             modify.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
@@ -43,6 +45,8 @@ public sealed class MetadataEditorWindowTests
             Assert.Equal(Visibility.Collapsed, modify.Visibility);
             Assert.Equal(Visibility.Visible, editor.Visibility);
             Assert.Equal("Consulta https://example.com/guide.", editor.Text);
+            editor.Text = string.Empty;
+            Assert.Equal(string.Empty, window.ItemDescription);
             window.Close();
         });
     }
