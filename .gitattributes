@@ -26,3 +26,6 @@ AGENTS.md export-ignore
 SOURCE_REVISION export-subst
 docs/*DG-* export-ignore
 packaging/public/hooks/* text eol=lf
+
+# Keep extension JavaScript byte-stable in source archives and Windows checkouts.
+integrations/chromium-extension/*.js text eol=lf
