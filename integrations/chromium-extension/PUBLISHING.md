@@ -1,28 +1,57 @@
-# Publicación en Microsoft Edge Add-ons
+# Edge Add-ons / Chrome Web Store
 
-Microsoft Edge sólo admite una instalación normal, persistente y actualizable mediante Edge Add-ons. La
-alternativa **Cargar descomprimida** es únicamente para desarrollo; un CRX privado necesita políticas de
-empresa y no es apropiado para usuarios particulares.
+Los ZIP son paquetes de envío, no extensiones ya instaladas o aprobadas por una tienda. Una versión
+descomprimida no obtiene actualizaciones binarias al recargar. No se ha configurado ninguna identidad
+de tienda real en el repositorio: la cuenta del propietario debe crear el producto y recibir su ID.
 
-## Preparado en el repositorio
+## Preparación local 0.6.25
 
-- Paquete ZIP con `manifest.json` en la raíz y únicamente archivos de ejecución.
-- Manifest V3, iconos 16/32/48/128 y apertura automática de la configuración tras instalar.
-- Logotipo de ficha 300 × 300.
-- Descripción, propósito único y justificación de permisos en `store-listing-es-ES.md`.
-- Texto de privacidad en `privacy-policy.md`.
+```powershell
+.\packaging\chromium\build-store-package.ps1 -Version 0.6.25 -Channel development
+.\packaging\chromium\build-store-package.ps1 -Version 0.6.25 -Channel edge
+.\packaging\chromium\build-store-package.ps1 -Version 0.6.25 -Channel chrome
+```
 
-## Paso externo del propietario
+Cada ZIP de tienda lleva `manifest.json` en la raíz, MV3, permisos mínimos, idiomas ES/EN y un
+`distribution.json` con el canal previsto. No contiene claves, IDs ficticios ni `update_url` inventado.
+La tienda incorpora el canal real al instalar. Cuando se conozca el ID, repetir el empaquetado con
+`-ExtensionId` y el valor realmente asignado. No crear otro producto para una actualización.
 
-1. Registrarse gratuitamente en el programa Microsoft Edge de Partner Center con una cuenta Microsoft.
-2. Publicar `privacy-policy.md` en una URL HTTPS pública y estable.
-3. Extraer `artifacts/UniShare-Edge-Submission-0.6.24.zip`.
-4. Crear un producto de extensión y cargar el `UniShare-Edge-Store-0.6.24.zip` que contiene.
-5. Completar la ficha en español con `store-listing-es-ES.md` y cargar `logo-300.png`.
-6. Declarar las prácticas de privacidad conforme al texto preparado, enviar a certificación y esperar la
-   aprobación de Microsoft.
-7. Después de aprobarse, sustituir en la documentación la instalación de desarrollo por el enlace oficial
-   de Edge Add-ons.
+Los dos expedientes `UniShare-Edge-Submission-0.6.25.zip` y
+`UniShare-Chrome-Submission-0.6.25.zip` contienen su payload exacto, ficha ES/EN, privacidad ES/EN,
+icono de 128px, logo de 300px, capturas reales de Ajustes 1280×800 y mosaico 440×280. Las capturas
+se hicieron con un perfil QA descomprimido y muestran ese estado con honestidad, sin datos personales.
+No son evidencia de instalación ni actualización real de tienda.
 
-No se debe publicar la clave privada de una biblioteca, incluirla en el paquete ni pegarla en Partner
-Center. Cada usuario obtiene su propia clave desde UniShare para Windows.
+## Último paso del propietario, después de revisar
+
+1. Acceder a la cuenta real de editor de Microsoft Edge Partner Center o Chrome Web Store. Si falta,
+   el propietario debe crearla y aceptar personalmente acuerdos/costes aplicables. No se ha aceptado nada.
+2. Crear el producto UniShare y cargar únicamente el ZIP `*-Store-*` del expediente correspondiente,
+   no el expediente completo ni el paquete de desarrollo. Registrar el ID que asigne la tienda.
+3. Completar la ficha y contacto del editor con datos reales, cargar las imágenes incluidas y declarar
+   permisos/privacidad conforme a las fichas. No publicar una clave de emparejamiento de Windows.
+4. Usar una URL HTTPS pública de la política. Tras publicar la rama pública revisada, puede utilizarse
+   `https://github.com/erzod31/UniShare/blob/main/integrations/chromium-extension/privacy-policy.md`
+   (o `privacy-policy-en.md`). Verificar que la versión publicada coincide con el expediente.
+5. Guardar/revisar el borrador antes de enviarlo a certificación. La aprobación la decide la tienda.
+6. Tras aprobarse, registrar URL/ID oficiales, instalar en un perfil de prueba independiente, emparejar
+   con una biblioteca sintética y comprobar guardar, conservar ajustes y actualizar entre dos versiones
+   de ese mismo producto. No declarar esta prueba superada antes de ejecutarla.
+
+La extensión verifica su identidad con `management.getSelf()`, sin permiso adicional `management`,
+el canal oficial y el tipo de instalación. Sólo habilita Aplicar tras una respuesta o evento real de
+actualización pendiente del navegador, con confirmación. No descarga ni instala un ZIP por su cuenta.
+No solicita comprobaciones periódicas que el navegador ya gestiona.
+
+## English
+
+Use the corresponding Store ZIP inside each submission dossier. All listings, privacy documents and
+images are supplied; publisher account/contact, assigned product ID, owner agreements and store review
+are external. No credentials or fabricated identity are supplied. An initial upload may omit the ID;
+after assignment pass it with `-ExtensionId` and keep the same store product for later versions.
+The browser provides native binary verification/update delivery. A development reload does not.
+
+References: [Chrome runtime](https://developer.chrome.com/docs/extensions/reference/api/runtime),
+[self identity without management permission](https://developer.chrome.com/docs/extensions/reference/api/management),
+[Microsoft extension distribution](https://learn.microsoft.com/en-us/microsoft-edge/extensions/developer-guide/alternate-distribution-options).

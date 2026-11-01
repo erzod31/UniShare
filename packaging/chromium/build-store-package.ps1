@@ -1,18 +1,27 @@
+#requires -Version 7.0
 param(
-    [string]$Version = "0.6.24"
+    [string]$Version = "0.6.25",
+    [ValidateSet('development', 'edge', 'chrome')]
+    [string]$Channel = 'edge',
+    [string]$ExtensionId = ''
 )
 
 $ErrorActionPreference = "Stop"
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Version must use X.Y.Z.' }
+if ($ExtensionId -and ($Channel -eq 'development' -or $ExtensionId -cnotmatch '^[a-p]{32}$')) {
+    throw 'Use only the real 32-character store ID, or omit it before the first store upload.'
+}
 
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repositoryRoot = (Resolve-Path (Join-Path $scriptDirectory "..\..")).Path
 $sourceRoot = Join-Path $repositoryRoot "integrations\chromium-extension"
 $artifactRoot = Join-Path $repositoryRoot "artifacts"
-$packageRoot = Join-Path $artifactRoot "chromium-$Version-package"
-$destination = Join-Path $artifactRoot "UniShare-Edge-Store-$Version.zip"
-$submissionRoot = Join-Path $artifactRoot "edge-$Version-submission"
-$submissionDestination = Join-Path $artifactRoot "UniShare-Edge-Submission-$Version.zip"
+$label = switch ($Channel) { 'edge' { 'Edge' }; 'chrome' { 'Chrome' }; 'development' { 'Chromium' } }
+$packageRoot = Join-Path $artifactRoot "$Channel-$Version-package"
+$packageName = if ($Channel -eq 'development') { "UniShare-Chromium-$Version.zip" } else { "UniShare-$label-Store-$Version.zip" }
+$destination = Join-Path $artifactRoot $packageName
+$submissionRoot = Join-Path $artifactRoot "$Channel-$Version-submission"
+$submissionDestination = Join-Path $artifactRoot "UniShare-$label-Submission-$Version.zip"
 
 & (Join-Path $scriptDirectory "test-extension.ps1") -Source $sourceRoot
 if ($LASTEXITCODE -ne 0) {
@@ -47,18 +56,29 @@ foreach ($file in @("manifest.json", "background.js", "i18n.js", "updates.js", "
 }
 Copy-Item -Path (Join-Path $sourceRoot "icons\*.png") -Destination (Join-Path $packageRoot "icons")
 Copy-Item -LiteralPath (Join-Path $sourceRoot "_locales") -Destination $packageRoot -Recurse
+[ordered]@{ schemaVersion = 1; productId = 'unishare'; store = $Channel; extensionId = $(if ($ExtensionId) { $ExtensionId } else { $null }) } |
+    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'distribution.json') -Encoding utf8NoBOM
+& (Join-Path $scriptDirectory 'test-extension.ps1') -Source $packageRoot
+if (-not $?) { throw 'La validación del paquete falló.' }
 
 Compress-Archive -Path (Join-Path $packageRoot "*") -DestinationPath $destination -CompressionLevel Optimal
 Remove-Item -LiteralPath $packageRoot -Recurse -Force
 
+if ($Channel -eq 'development') { Write-Output "Paquete de desarrollo: $destination"; return }
+
 New-Item -ItemType Directory -Path $submissionRoot -Force | Out-Null
 Copy-Item -LiteralPath $destination -Destination $submissionRoot
-foreach ($file in @("PUBLISHING.md", "privacy-policy.md", "store-listing-es-ES.md")) {
+foreach ($file in @("PUBLISHING.md", "privacy-policy.md", "privacy-policy-en.md", "store-listing-es-ES.md", "store-listing-en-US.md")) {
     Copy-Item -LiteralPath (Join-Path $sourceRoot $file) -Destination $submissionRoot
 }
 Copy-Item -LiteralPath (Join-Path $sourceRoot "store-assets\logo-300.png") -Destination $submissionRoot
+Copy-Item -LiteralPath (Join-Path $sourceRoot "icons\icon-128.png") -Destination $submissionRoot
+foreach ($asset in @('options-es-1280x800.png', 'options-en-1280x800.png', 'small-tile-440x280.png')) {
+    Copy-Item -LiteralPath (Join-Path $sourceRoot "store-assets/$asset") -Destination $submissionRoot
+}
 Compress-Archive -Path (Join-Path $submissionRoot "*") -DestinationPath $submissionDestination -CompressionLevel Optimal
 Remove-Item -LiteralPath $submissionRoot -Recurse -Force
 
-Write-Output "Paquete Edge Add-ons creado en artifacts\UniShare-Edge-Store-$Version.zip"
-Write-Output "Expediente de publicación creado en artifacts\UniShare-Edge-Submission-$Version.zip"
+Write-Output "Paquete $label creado en $destination"
+Write-Output "Expediente de publicación creado en $submissionDestination"
+Write-Output 'Pendiente: cuenta de editor, asignación del ID y aprobación de la tienda; este ZIP no es una instalación de tienda.'

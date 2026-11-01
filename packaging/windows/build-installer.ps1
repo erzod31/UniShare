@@ -1,5 +1,5 @@
 param(
-    [string]$Version = "0.6.24",
+    [string]$Version = "0.6.25",
     [switch]$SmokeOnly
 )
 

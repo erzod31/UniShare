@@ -20,7 +20,7 @@ Requiere Git y PowerShell 7. Guarda y confirma primero los cambios de código y 
 git status --short
 git fetch --no-tags origin
 .\packaging\public\test-publication.ps1
-.\packaging\public\prepare-publication.ps1 -Version 0.6.24
+.\packaging\public\prepare-publication.ps1 -Version 0.6.25
 git diff --stat origin/main public
 git log --oneline origin/main..public
 git diff origin/main public
@@ -58,9 +58,9 @@ convierte en nuevos los instaladores ya existentes.
 ### ZIP fuente independiente
 
 ```powershell
-.\packaging\public\build-source-package.ps1 -Version 0.6.24
+.\packaging\public\build-source-package.ps1 -Version 0.6.25
 # Una vista previa puede usar otro nombre dentro de artifacts, sin sustituir el paquete de entrega:
-.\packaging\public\build-source-package.ps1 -Version 0.6.24 -OutputPath artifacts/source-preview.zip
+.\packaging\public\build-source-package.ps1 -Version 0.6.25 -OutputPath artifacts/source-preview.zip
 ```
 
 ### Configuración de esta máquina y recuperación
@@ -81,7 +81,7 @@ Use `UniShare` as the only permanent workspace. Local `master` keeps private dev
 `public` contains sanitized snapshots based on the existing GitHub `main`. Never push `master`.
 
 With Git and PowerShell 7 installed, commit your source changes, fetch `origin`, run
-`packaging/public/test-publication.ps1`, then run `packaging/public/prepare-publication.ps1 -Version 0.6.24`.
+`packaging/public/test-publication.ps1`, then run `packaging/public/prepare-publication.ps1 -Version 0.6.25`.
 Review `git diff origin/main public`. Preparation changes no working files, preserves public ancestry,
 scans the exported source for private content, removes temporary staging and never pushes.
 

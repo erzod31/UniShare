@@ -1,4 +1,4 @@
-# UniShare para Android 0.6.23
+# UniShare para Android 0.6.25
 
 La aplicación Android es local-first: guarda enlaces, archivos e híbridos en SQLite privado y conserva
 blobs en un CAS SHA-256. Recibe contenido con Sharesheet/SAF, busca, edita metadatos y organización,

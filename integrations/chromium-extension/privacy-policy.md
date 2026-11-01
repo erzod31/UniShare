@@ -1,6 +1,6 @@
-# Política de privacidad de la extensión UniShare para Microsoft Edge
+# Política de privacidad de la extensión UniShare para Edge y Chrome
 
-Última actualización: 26 de septiembre de 2026.
+Última actualización: 2 de noviembre de 2026.
 
 ## Finalidad y datos tratados
 
@@ -12,10 +12,14 @@ navegador permita leer.
 ## Destino y almacenamiento
 
 La información se envía únicamente a la aplicación UniShare del mismo ordenador a través de la dirección
-local `http://127.0.0.1`. La extensión no envía datos a UniShare, Microsoft ni otros terceros por Internet,
+local `http://127.0.0.1`. La extensión no envía el contenido ni la clave a servicios externos por Internet,
 no usa analítica, publicidad, telemetría ni seguimiento. El puerto y la clave privada de conexión se
-guardan en el almacenamiento local del perfil de Edge y sólo se usan para autenticar esa comunicación
+guardan en el almacenamiento local del perfil del navegador y sólo se usan para autenticar esa comunicación
 local.
+
+El navegador consulta por separado su tienda para las actualizaciones binarias, bajo la política de
+privacidad de Microsoft o Google. La extensión consulta únicamente su propia identidad de instalación,
+sin enumerar otras extensiones ni solicitar el permiso de administración.
 
 ## Control y eliminación
 
@@ -31,5 +35,5 @@ configure el usuario.
 
 ## Contacto
 
-Para consultas de privacidad o soporte debe usarse el contacto del editor que figure en la ficha oficial
-de UniShare en Microsoft Edge Add-ons.
+Para consultas de privacidad o soporte: https://github.com/erzod31/UniShare/issues. No publiques
+enlaces privados ni claves de emparejamiento en las incidencias.

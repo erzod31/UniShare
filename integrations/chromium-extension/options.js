@@ -10,20 +10,35 @@ UniShareI18n.initialize().then(() => chrome.storage.local.get(['port', 'pairingK
   initializeUpdates();
 });
 
-function initializeUpdates() {
+async function initializeUpdates() {
   const updateStatus = document.querySelector('#updateStatus');
   const check = document.querySelector('#checkUpdate');
   const apply = document.querySelector('#applyUpdate');
   const manifest = chrome.runtime.getManifest();
   let available = null;
   document.querySelector('#extensionVersion').textContent = UniShareI18n.t('installedVersion') + manifest.version;
-  const native = UniShareExtensionUpdates.hasNativeChannel(manifest);
+  check.disabled = true;
+  let updater, channel;
+  try {
+    const response = await fetch(chrome.runtime.getURL('distribution.json'));
+    if (!response.ok) throw new Error('Distribution metadata missing');
+    updater = UniShareExtensionUpdates.create(chrome.runtime, chrome.management, await response.json());
+    channel = await updater.inspect();
+  } catch {
+    updateStatus.textContent = UniShareI18n.t('invalidUpdateChannel');
+    return;
+  }
+  const native = channel.status === 'store';
+  document.querySelector('#extensionChannel').textContent = UniShareI18n.t('updateChannel') +
+    (native ? (channel.store === 'edge' ? 'Microsoft Edge Add-ons' : 'Chrome Web Store') : UniShareI18n.t('developmentChannel'));
   updateStatus.textContent = UniShareI18n.t(native ? 'browserUpdates' : 'developmentUpdates');
   check.disabled = !native;
   check.addEventListener('click', async () => {
     check.disabled = true;
     try {
-      const result = await UniShareExtensionUpdates.check(chrome.runtime);
+      available = null;
+      apply.hidden = true;
+      const result = await updater.check();
       available = result.status === 'update_available' ? result.version : null;
       apply.hidden = !available;
       updateStatus.textContent = UniShareI18n.t(result.status === 'update_available' ? 'browserUpdateReady' :
@@ -31,15 +46,17 @@ function initializeUpdates() {
     } catch { updateStatus.textContent = UniShareI18n.t('updateFailed'); }
     finally { check.disabled = !native; }
   });
-  chrome.runtime.onUpdateAvailable.addListener(details => {
-    if (native && UniShareExtensionUpdates.newer(manifest.version, details.version)) {
+  chrome.runtime.onUpdateAvailable.addListener(async details => {
+    try { if (native && await updater.onAvailable(details)) {
       available = details.version;
       apply.hidden = false;
       updateStatus.textContent = UniShareI18n.t('browserUpdateReady') + available;
-    }
+    } } catch { available = null; apply.hidden = true; updateStatus.textContent = UniShareI18n.t('updateFailed'); }
   });
-  apply.addEventListener('click', () => {
-    if (available) UniShareExtensionUpdates.apply(chrome.runtime, available, window.confirm(UniShareI18n.t('confirmBrowserUpdate')));
+  apply.addEventListener('click', async () => {
+    try { if (available && await updater.apply(window.confirm(UniShareI18n.t('confirmBrowserUpdate')))) {
+      available = null; apply.hidden = true;
+    } } catch { available = null; apply.hidden = true; updateStatus.textContent = UniShareI18n.t('updateFailed'); }
   });
 }
 

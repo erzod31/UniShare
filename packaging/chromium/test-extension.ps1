@@ -55,6 +55,18 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 if ($manifest.manifest_version -ne 3) {
     throw "La extensión debe usar Manifest V3."
 }
+if ($manifest.PSObject.Properties.Name -contains 'update_url' -or $manifest.PSObject.Properties.Name -contains 'key') {
+    throw 'Los ZIP de desarrollo/envío no deben inventar una URL de actualización o identidad de tienda.'
+}
+$distribution = Get-Content -LiteralPath (Join-Path $sourceRoot 'distribution.json') -Raw | ConvertFrom-Json
+if ($distribution.schemaVersion -ne 1 -or $distribution.productId -ne 'unishare' -or
+    $distribution.store -notin @('development', 'edge', 'chrome') -or
+    ($null -ne $distribution.extensionId -and $distribution.extensionId -cnotmatch '^[a-p]{32}$')) {
+    throw 'Identidad/canal de distribución no válido.'
+}
+if (@($manifest.permissions | Where-Object { $_ -notin @('activeTab', 'scripting', 'storage') }).Count -ne 0) {
+    throw 'La extensión no necesita permisos adicionales para inspeccionar su propia identidad.'
+}
 
 $requiredFiles = @(
     $manifest.background.service_worker,

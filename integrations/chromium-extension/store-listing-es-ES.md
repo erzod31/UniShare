@@ -1,4 +1,4 @@
-# Ficha de Microsoft Edge Add-ons — es-ES
+# Ficha de Edge Add-ons / Chrome Web Store — es-ES
 
 ## Nombre
 
@@ -10,7 +10,7 @@ Guarda enlaces y copias offline directamente en tu biblioteca privada UniShare.
 
 ## Descripción
 
-UniShare permite guardar la pestaña actual de Microsoft Edge en tu biblioteca personal local. Puedes
+UniShare permite guardar la pestaña actual de Edge o Chrome en tu biblioteca personal local. Puedes
 revisar el título, elegir una carpeta y decidir entre conservar únicamente el enlace o añadir una copia
 offline con el texto renderizado y las imágenes visibles compatibles. La extensión se comunica
 exclusivamente con la aplicación UniShare instalada en el mismo ordenador mediante `127.0.0.1`; no usa
@@ -23,7 +23,7 @@ UniShare y puede sincronizarse directamente con Android mediante su red privada 
 
 ## Propósito único
 
-Guardar, a petición del usuario, la pestaña activa de Edge en una biblioteca local UniShare.
+Guardar, a petición del usuario, la pestaña activa en una biblioteca local UniShare.
 
 ## Términos de búsqueda
 
@@ -39,4 +39,5 @@ marcadores, enlaces, biblioteca, offline, privacidad, lectura, archivo
 ## Activos para la ficha
 
 - Logotipo obligatorio: `store-assets/logo-300.png` (300 × 300 PNG).
-- Capturas y mosaicos promocionales: opcionales; se pueden añadir después de validar la ficha publicada.
+- Icono de 128px, capturas reales de Ajustes 1280×800 en ES/EN y mosaico 440×280 incluidos en el expediente.
+- Las capturas usan una instalación de desarrollo aislada, sin claves reales; no demuestran publicación en tienda.

@@ -37,8 +37,8 @@ android {
         applicationId = "org.unishare.app"
         minSdk = 26
         targetSdk = 37
-        versionCode = 37
-        versionName = "0.6.24"
+        versionCode = 38
+        versionName = "0.6.25"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

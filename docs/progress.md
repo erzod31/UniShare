@@ -1114,3 +1114,21 @@ restauración Android. La captura y persistencia del enlace sí están verificad
 - Limpieza realizada: 80 entradas de compilación, QA, cachés locales y paquetes anteriores retiradas
   del proyecto a un archivo recuperable fuera del repositorio. Quedan ocho paquetes actuales, informes
   saneados y un TRX final por proyecto; no se han tocado la biblioteca ni los backups del usuario.
+
+## 2026-11-02 - Preparación de distribución y actualización 0.6.25 (DG-0034)
+
+- Canal público consultado: GitHub Releases sigue en 0.6.16. Los candidatos no se activan ni instalan.
+- Extensión: identidad propia y endpoint oficial Edge/Chrome, instalación normal y actualización
+  pendiente anunciada por el navegador antes de solicitar aplicar. Un ZIP descomprimido se identifica
+  como desarrollo. Sin permisos nuevos, polling, IDs inventados ni recarga presentada como descarga.
+- Empaquetado separado de desarrollo/Edge/Chrome; expedientes ES/EN con privacidad e imágenes de la
+  UI real en perfil QA vacío. Script coordinado y plan local para diez artefactos, hashes y revisión
+  pública separada. Los comandos de compilación nunca ejecutan Setup ni un despliegue remoto.
+- Validación de implementación: 222 pruebas .NET, 130 JVM, 59 Node y 31 contratos de publicación.
+  Navegador Chromium aislado: cinco comprobaciones UI, sin errores; ninguna instalación de tienda.
+- La firma Android histórica coincide y versionCode sube a 38. Lint sin errores; conserva el aviso
+  de nueva versión Gradle. No se cambian dependencias para resolver un aviso ajeno a esta entrega.
+- Registro de candidatos y comprobaciones finales en el informe local implementation-DG-0034.json.
+  Pendientes externos: aprobación remota, cuenta/contacto/certificación de tiendas y prueba nativa
+  de instalar/actualizar/cancelar/reabrir en VM o dispositivo independiente. Ninguna prueba en LG,
+  instalaciones habituales, perfiles personales o red global. Ver RELEASE_PREPARATION.md.

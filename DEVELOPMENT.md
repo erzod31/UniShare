@@ -17,7 +17,7 @@ Android JVM, Android instrumentado y Chromium. Para la extensión se necesita No
 
 La actualización del propio binario se documenta en [APP_UPDATES](docs/APP_UPDATES.md).
 Durante DG-0018, sólo se prueban lanzadores falsos: nunca ejecutar instaladores/actualizadores reales
-en el Windows compartido. El empaquetado admite `build-installer.ps1 -Version 0.6.24 -SmokeOnly`;
+en el Windows compartido. El empaquetado admite `build-installer.ps1 -Version 0.6.25 -SmokeOnly`;
 ese modo valida arranque/búsqueda/cierre de la app en un perfil temporal sin ejecutar el Setup.
 Contratos de extensión: `node --test tests/chromium/*.test.cjs tests/translation/*.test.cjs`.
 
@@ -46,11 +46,11 @@ dotnet run --project src/UniShare.Desktop/UniShare.Desktop.csproj -- --smoke-tes
 Instala Inno Setup 6 y ejecuta:
 
 ```powershell
-.\packaging\windows\build-installer.ps1 -Version 0.6.24
+.\packaging\windows\build-installer.ps1 -Version 0.6.25
 ```
 
 El script usa los bloqueos `packages.win-x64.lock.json`, publica una aplicación autocontenida y crea
-`artifacts\UniShare-Windows-Setup-0.6.24.exe`. La restauración normal de la solución continúa usando los
+`artifacts\UniShare-Windows-Setup-0.6.25.exe`. La restauración normal de la solución continúa usando los
 bloqueos multiplataforma `packages.lock.json`.
 
 También funciona desde el ZIP fuente oficial sin `.git`: `SOURCE_REVISION` conserva su revisión de
@@ -97,3 +97,9 @@ Windows en `127.0.0.1:47831`; para publicarlo sólo en la tailnet se usa
 - No usar datos personales reales en fixtures o capturas.
 - Los perfiles de pruebas se crean bajo directorios temporales y nunca apuntan al perfil real.
 - No borrar manualmente blobs sin ejecutar antes una comprobación de referencias.
+
+## Distribución coordinada
+
+Ver [RELEASE_PREPARATION](docs/RELEASE_PREPARATION.md) para generar los diez candidatos y sus
+expedientes sin despliegue. Las pruebas de navegador usan un perfil nuevo y un Playwright de desarrollo
+ya instalado; "UNISHARE_PLAYWRIGHT_MODULE" puede indicar su módulo. No es dependencia del producto.

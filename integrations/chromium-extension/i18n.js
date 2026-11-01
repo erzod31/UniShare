@@ -2,6 +2,8 @@ const translations = {
   es: {
     appUpdates: 'Actualizar extensión', installedVersion: 'Versión instalada: ', checkUpdate: 'Buscar actualización',
     applyUpdate: 'Aplicar actualización del navegador', browserUpdates: 'El navegador descarga y verifica las actualizaciones de esta extensión.',
+    updateChannel: 'Canal: ', developmentChannel: 'Desarrollo, sin actualizaciones binarias',
+    invalidUpdateChannel: 'No se pudo verificar la identidad y el canal de tienda. No se aplicará ninguna actualización.',
     developmentUpdates: 'ZIP de desarrollo: no hay canal binario de tienda. Se necesita publicar e instalar desde Edge Add-ons o Chrome Web Store. Recargar no descarga una nueva versión.',
     browserUpdateReady: 'Paquete verificado por el navegador, listo para aplicar: ', browserNoUpdate: 'El navegador no ofrece una actualización ahora.',
     updateThrottled: 'El navegador limita las consultas. Vuelve a intentarlo más tarde.', updateFailed: 'No se pudo consultar el actualizador del navegador.',
@@ -23,6 +25,8 @@ const translations = {
   en: {
     appUpdates: 'Update extension', installedVersion: 'Installed version: ', checkUpdate: 'Check for updates',
     applyUpdate: 'Apply browser update', browserUpdates: 'The browser downloads and verifies updates for this extension.',
+    updateChannel: 'Channel: ', developmentChannel: 'Development, no binary updates',
+    invalidUpdateChannel: 'The store identity and update channel could not be verified. No update will be applied.',
     developmentUpdates: 'Development ZIP: no binary store channel. Publishing and installation through Edge Add-ons or Chrome Web Store are required. Reloading does not download a new version.',
     browserUpdateReady: 'Browser-verified package ready to apply: ', browserNoUpdate: 'The browser offers no update right now.',
     updateThrottled: 'The browser limits update checks. Try again later.', updateFailed: 'Could not query the browser updater.',
