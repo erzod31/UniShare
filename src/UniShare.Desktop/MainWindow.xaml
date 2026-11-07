@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:UniShare.Desktop"
         xmlns:webview="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
-        Title="UniShare" Height="790" Width="1260" MinHeight="590" MinWidth="840"
+        Title="UniShare" Icon="pack://application:,,,/Assets/UniShare.ico" Height="790" Width="1260" MinHeight="590" MinWidth="840"
         Background="{DynamicResource WindowBackgroundBrush}" Foreground="{DynamicResource PrimaryTextBrush}"
         Loaded="Window_Loaded" SizeChanged="Window_SizeChanged" PreviewKeyDown="Window_PreviewKeyDown" AllowDrop="True"
         DragOver="Window_DragOver" Drop="Window_Drop"

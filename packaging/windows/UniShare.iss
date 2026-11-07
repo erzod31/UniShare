@@ -27,6 +27,7 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 SetupLogging=yes
+SetupIconFile=..\..\src\UniShare.Desktop\Assets\UniShare.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 CloseApplications=force
 CloseApplicationsFilter=*.*
