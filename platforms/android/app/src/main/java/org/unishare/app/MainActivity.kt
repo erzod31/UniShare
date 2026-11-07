@@ -12,6 +12,7 @@ import androidx.core.content.FileProvider
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.core.view.WindowCompat
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,6 +77,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
@@ -1194,12 +1196,19 @@ class MainActivity : ComponentActivity() {
             topBar = {
                 TopAppBar(
                     title = {
-                        if (compactLayout) {
-                            Text(section.label, fontWeight = FontWeight.SemiBold)
-                        } else {
-                            Column {
-                                Text("UniShare", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_unishare),
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp).padding(end = 8.dp),
+                            )
+                            if (compactLayout) {
                                 Text(section.label, fontWeight = FontWeight.SemiBold)
+                            } else {
+                                Column {
+                                    Text("UniShare", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                                    Text(section.label, fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
                     },

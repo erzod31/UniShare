@@ -1,7 +1,7 @@
 <Window x:Class="UniShare.Desktop.ConflictsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Conflictos de sincronización" Height="470" Width="820"
+        Title="Conflictos de sincronización" Icon="pack://application:,,,/Assets/UniShare.ico" Height="470" Width="820"
         MinHeight="360" MinWidth="660" Background="{DynamicResource WindowBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}" Loaded="Window_Loaded">
     <Grid Margin="22">

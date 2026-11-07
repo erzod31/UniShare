@@ -1,7 +1,7 @@
 <Window x:Class="UniShare.Desktop.DirectSyncWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Conectar dispositivos" Height="900" Width="720"
+        Title="Conectar dispositivos" Icon="pack://application:,,,/Assets/UniShare.ico" Height="900" Width="720"
         MinHeight="660" MinWidth="650" Background="{DynamicResource WindowBackgroundBrush}"
         Foreground="{DynamicResource PrimaryTextBrush}" WindowStartupLocation="CenterOwner">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
