@@ -1,16 +1,23 @@
 package org.unishare.app
 
 import android.app.Activity
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,7 +28,9 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -74,35 +83,97 @@ internal fun AppUpdatesPanel(activity: Activity, language: UiLanguageChoice) {
         }
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text("Actualizar UniShare", "Update UniShare"), style = MaterialTheme.typography.titleMedium)
-            Text(text("Versión instalada: ", "Installed version: ") + BuildConfig.VERSION_NAME)
-            Text("GitHub Releases · $repository", style = MaterialTheme.typography.bodySmall)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "↻",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text("Actualizar UniShare", "Update UniShare"),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text("Versión instalada: ", "Installed version: ") + BuildConfig.VERSION_NAME,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                "GitHub Releases · $repository",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             if (channel == null) Text(text("Canal de actualización no válido.", "Invalid update channel."))
             if (activity.packageName != productionPackage) Text(text("Compilación QA: no se instalarán paquetes de producción.", "QA build: production packages will not be installed."))
-            if (status.isNotBlank()) Text(status)
+            if (status.isNotBlank()) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = RoundedCornerShape(10.dp),
+                ) {
+                    Text(
+                        status,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
             if (busy) LinearProgressIndicator(progress = { progress.coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
-            OutlinedButton(enabled = !busy && channel != null, onClick = {
-                run { token ->
-                    candidate = null; ready = null; progress = 0f
-                    val result = withContext(Dispatchers.IO) { client.check(token) }
-                    candidate = result.candidate
-                    status = if (result.candidate != null) text("Nueva versión: ", "New version: ") + result.candidate.version
-                    else if (result.published != null) text("Publicada en el canal: ", "Published on the channel: ") + result.published +
-                        text(". No se ofrece una versión anterior.", ". An older version will not be offered.")
-                    else text("Todavía no hay una publicación estable.", "There is no stable release yet.")
-                }
-            }) { Text(text("Buscar actualización", "Check for updates")) }
-            if (candidate != null && ready == null) Button(enabled = !busy && activity.packageName == productionPackage, onClick = {
-                val next = candidate ?: return@Button
-                run { token ->
-                    ready = withContext(Dispatchers.IO) { client.download(next, token) { progress = it.toFloat() / next.bytes } }
-                    status = text("APK verificado: tamaño, SHA-256, producto, versión y certificado coinciden.",
-                        "APK verified: size, SHA-256, product, version and certificate match.")
-                }
-            }) { Text(text("Descargar actualización", "Download update")) }
-            if (ready != null) Button(enabled = !busy, onClick = { confirm = true }) {
+            OutlinedButton(
+                enabled = !busy && channel != null,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                onClick = {
+                    run { token ->
+                        candidate = null; ready = null; progress = 0f
+                        val result = withContext(Dispatchers.IO) { client.check(token) }
+                        candidate = result.candidate
+                        status = if (result.candidate != null) text("Nueva versión: ", "New version: ") + result.candidate.version
+                        else if (result.published != null) text("Publicada en el canal: ", "Published on the channel: ") + result.published +
+                            text(". No se ofrece una versión anterior.", ". An older version will not be offered.")
+                        else text("Todavía no hay una publicación estable.", "There is no stable release yet.")
+                    }
+                },
+            ) { Text(text("Buscar actualización", "Check for updates")) }
+            if (candidate != null && ready == null) Button(
+                enabled = !busy && activity.packageName == productionPackage,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                onClick = {
+                    val next = candidate ?: return@Button
+                    run { token ->
+                        ready = withContext(Dispatchers.IO) { client.download(next, token) { progress = it.toFloat() / next.bytes } }
+                        status = text("APK verificado: tamaño, SHA-256, producto, versión y certificado coinciden.",
+                            "APK verified: size, SHA-256, product, version and certificate match.")
+                    }
+                },
+            ) { Text(text("Descargar actualización", "Download update")) }
+            if (ready != null) Button(
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                onClick = { confirm = true },
+            ) {
                 Text(text("Instalar actualización", "Install update"))
             }
             if (busy) TextButton(onClick = { operation?.cancel() }) { Text(text("Cancelar", "Cancel")) }

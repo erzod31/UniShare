@@ -46,6 +46,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ModalBottomSheet
@@ -1156,6 +1157,73 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @Composable
+    private fun MenuIconBadge(symbol: String) {
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            MaterialText(
+                symbol,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer,
+            )
+        }
+    }
+
+    @Composable
+    private fun SettingsActionRow(
+        symbol: String,
+        title: String,
+        subtitle: String? = null,
+        enabled: Boolean = true,
+        trailingText: String = "›",
+        onClick: () -> Unit,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .alpha(if (enabled) 1f else 0.5f)
+                .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f), RoundedCornerShape(10.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                MaterialText(
+                    symbol,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+                if (!subtitle.isNullOrBlank()) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Text(
+                trailingText,
+                style = if (trailingText == "›") MaterialTheme.typography.titleLarge else MaterialTheme.typography.labelMedium,
+                color = if (trailingText == "›") MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
+                fontWeight = if (trailingText == "›") FontWeight.Normal else FontWeight.SemiBold,
+            )
+        }
+    }
+
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun LibraryScreen() {
@@ -1242,42 +1310,110 @@ class MainActivity : ComponentActivity() {
                                 },
                             )
                         }
-                        Box {
-                            TextButton(
-                                onClick = { optionsExpanded = true },
-                                modifier = Modifier.semantics { contentDescription = UiStrings.translate("Más opciones") },
-                            ) { Text("⋮", style = MaterialTheme.typography.titleLarge) }
+                        Box(modifier = Modifier.padding(start = 6.dp, end = 4.dp)) {
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                                modifier = Modifier
+                                    .clickable(role = Role.Button) { optionsExpanded = true }
+                                    .semantics { contentDescription = UiStrings.translate("Más opciones") },
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    MaterialText(
+                                        "⚙",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    MaterialText(
+                                        "▾",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
                             DropdownMenu(
                                 expanded = optionsExpanded,
                                 onDismissRequest = { optionsExpanded = false },
+                                shape = RoundedCornerShape(16.dp),
                                 containerColor = MaterialTheme.colorScheme.surfaceContainer,
                             ) {
                                 DropdownMenuItem(
+                                    leadingIcon = { MenuIconBadge("✦") },
+                                    text = {
+                                        Text(
+                                            if (isRefreshingOriginMetadata) "Analizando contenido…" else "Actualizar títulos y resúmenes",
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    },
+                                    enabled = !isRefreshingOriginMetadata,
+                                    onClick = { optionsExpanded = false; refreshOriginMetadata(automaticOnly = false) },
+                                )
+                                DropdownMenuItem(
+                                    leadingIcon = { MenuIconBadge("⇄") },
+                                    text = { Text("Conectar con Windows…", color = MaterialTheme.colorScheme.onSurface) },
+                                    onClick = { optionsExpanded = false; showSyncSettings = true },
+                                )
+                                DropdownMenuItem(
+                                    leadingIcon = { MenuIconBadge("⚠") },
+                                    text = { Text("Resolver conflictos (${conflicts.size})", color = MaterialTheme.colorScheme.onSurface) },
+                                    enabled = conflicts.isNotEmpty(),
+                                    onClick = { optionsExpanded = false; selectedConflict = conflicts.firstOrNull() },
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                DropdownMenuItem(
+                                    leadingIcon = { MenuIconBadge("⤒") },
                                     text = { Text("Exportar copia de seguridad…", color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = { optionsExpanded = false; backupCreator.launch("unishare-respaldo.unishare.zip") },
                                 )
                                 DropdownMenuItem(
+                                    leadingIcon = { MenuIconBadge("⤓") },
                                     text = { Text("Restaurar copia sin borrar datos…", color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = {
                                         optionsExpanded = false
                                         backupPicker.launch(arrayOf("application/zip", "application/octet-stream"))
                                     },
                                 )
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                                 DropdownMenuItem(
-                                    text = { Text("Conectar con Windows…", color = MaterialTheme.colorScheme.onSurface) },
-                                    onClick = { optionsExpanded = false; showSyncSettings = true },
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Resolver conflictos (${conflicts.size})", color = MaterialTheme.colorScheme.onSurface) },
-                                    enabled = conflicts.isNotEmpty(),
-                                    onClick = { optionsExpanded = false; selectedConflict = conflicts.firstOrNull() },
-                                )
-                                DropdownMenuItem(
+                                    leadingIcon = { MenuIconBadge("◐") },
                                     text = { Text("Tema: ${themePreference.label}", color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = {
                                         themePreference = themePreference.next()
                                         ThemeSettings.save(this@MainActivity, themePreference)
                                         optionsExpanded = false
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    leadingIcon = { MenuIconBadge("🌐") },
+                                    text = {
+                                        Text(
+                                            if (uiLanguage == UiLanguageChoice.ENGLISH) "Language: English" else "Idioma: Español",
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                        )
+                                    },
+                                    onClick = {
+                                        uiLanguage = if (uiLanguage == UiLanguageChoice.SPANISH) {
+                                            UiLanguageChoice.ENGLISH
+                                        } else {
+                                            UiLanguageChoice.SPANISH
+                                        }
+                                        UiStrings.current = uiLanguage
+                                        UiLanguageSettings.save(this@MainActivity, uiLanguage)
+                                        optionsExpanded = false
+                                    },
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                                DropdownMenuItem(
+                                    leadingIcon = { MenuIconBadge("⚙") },
+                                    text = { Text("Abrir Ajustes y actualizaciones…", color = MaterialTheme.colorScheme.onSurface) },
+                                    onClick = {
+                                        optionsExpanded = false
+                                        clearSelection()
+                                        section = HomeSection.SETTINGS
                                     },
                                 )
                             }
@@ -1614,69 +1750,156 @@ class MainActivity : ComponentActivity() {
                     HomeSection.SETTINGS -> {
                         Column(
                             modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
                         AppUpdatesPanel(this@MainActivity, uiLanguage)
                         Text("Datos y dispositivos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                        OutlinedButton(onClick = { showSyncSettings = true }, modifier = Modifier.fillMaxWidth()) {
-                            Text(if (syncConfigured) "Cambiar conexión con Windows" else "Conectar con Windows")
-                        }
-                        OutlinedButton(
-                            onClick = { backupCreator.launch("unishare-respaldo.unishare.zip") },
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Exportar copia de seguridad") }
-                        OutlinedButton(
-                            onClick = { backupPicker.launch(arrayOf("application/zip", "application/octet-stream")) },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Restaurar copia sin borrar datos") }
-                        OutlinedButton(
-                            onClick = { refreshOriginMetadata(automaticOnly = false) },
-                            enabled = !isRefreshingOriginMetadata,
-                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         ) {
-                            Text(if (isRefreshingOriginMetadata) "Analizando contenido…" else "Actualizar títulos y resúmenes")
+                            Column {
+                                SettingsActionRow(
+                                    symbol = "⇄",
+                                    title = if (syncConfigured) "Cambiar conexión con Windows" else "Conectar con Windows",
+                                    subtitle = if (syncConfigured) syncEndpoint else "Sincronización directa por Tailscale",
+                                    onClick = { showSyncSettings = true },
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                SettingsActionRow(
+                                    symbol = "✦",
+                                    title = if (isRefreshingOriginMetadata) "Analizando contenido…" else "Actualizar títulos y resúmenes",
+                                    subtitle = "Analiza enlaces para completar su información",
+                                    enabled = !isRefreshingOriginMetadata,
+                                    onClick = { refreshOriginMetadata(automaticOnly = false) },
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                SettingsActionRow(
+                                    symbol = "⤒",
+                                    title = "Exportar copia de seguridad",
+                                    subtitle = "Guarda tu biblioteca en un archivo .unishare.zip",
+                                    onClick = { backupCreator.launch("unishare-respaldo.unishare.zip") },
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                SettingsActionRow(
+                                    symbol = "⤓",
+                                    title = "Restaurar copia sin borrar datos",
+                                    subtitle = "Fusiona elementos verificados sin perder cambios",
+                                    onClick = { backupPicker.launch(arrayOf("application/zip", "application/octet-stream")) },
+                                )
+                            }
                         }
-                        OutlinedButton(
-                            onClick = {
-                                themePreference = themePreference.next()
-                                ThemeSettings.save(this@MainActivity, themePreference)
-                            },
+
+                        Text("Apariencia e idioma", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
-                        ) { Text("Tema: ${themePreference.label}") }
-                        OutlinedButton(
-                            onClick = {
-                                uiLanguage = if (uiLanguage == UiLanguageChoice.SPANISH) {
-                                    UiLanguageChoice.ENGLISH
-                                } else {
-                                    UiLanguageChoice.SPANISH
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        ) {
+                            Column {
+                                SettingsActionRow(
+                                    symbol = "◐",
+                                    title = "Tema: ${themePreference.label}",
+                                    subtitle = "Toca para alternar entre Sistema, Claro y Oscuro",
+                                    trailingText = "Cambiar",
+                                    onClick = {
+                                        themePreference = themePreference.next()
+                                        ThemeSettings.save(this@MainActivity, themePreference)
+                                    },
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                SettingsActionRow(
+                                    symbol = "🌐",
+                                    title = if (uiLanguage == UiLanguageChoice.ENGLISH) "Language: English" else "Idioma: Español",
+                                    subtitle = "Idioma de la interfaz y de la traducción local",
+                                    trailingText = "Cambiar",
+                                    onClick = {
+                                        uiLanguage = if (uiLanguage == UiLanguageChoice.SPANISH) {
+                                            UiLanguageChoice.ENGLISH
+                                        } else {
+                                            UiLanguageChoice.SPANISH
+                                        }
+                                        UiStrings.current = uiLanguage
+                                        UiLanguageSettings.save(this@MainActivity, uiLanguage)
+                                    },
+                                )
+                                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(role = Role.Checkbox) {
+                                            automaticTranslation = !automaticTranslation
+                                            DescriptionTranslationSettings.save(this@MainActivity, automaticTranslation)
+                                        }
+                                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(38.dp)
+                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f), RoundedCornerShape(10.dp)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        MaterialText(
+                                            "✓",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        )
+                                    }
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            "Traducir descripciones automáticamente",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Medium,
+                                        )
+                                        Text(
+                                            "Traducción local al idioma de Ajustes. Descarga idiomas al primer uso; el texto no sale del dispositivo.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                    Checkbox(
+                                        checked = automaticTranslation,
+                                        onCheckedChange = {
+                                            automaticTranslation = it
+                                            DescriptionTranslationSettings.save(this@MainActivity, it)
+                                        },
+                                        modifier = Modifier.semantics {
+                                            contentDescription = UiStrings.translate("Traducir descripciones automáticamente")
+                                        },
+                                    )
                                 }
-                                UiStrings.current = uiLanguage
-                                UiLanguageSettings.save(this@MainActivity, uiLanguage)
-                            },
+                            }
+                        }
+
+                        Text("Papelera", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                        Card(
                             modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                         ) {
-                            Text(if (uiLanguage == UiLanguageChoice.ENGLISH) "Language: English" else "Idioma: Español")
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = automaticTranslation, onCheckedChange = {
-                                automaticTranslation = it
-                                DescriptionTranslationSettings.save(this@MainActivity, it)
-                            }, modifier = Modifier.semantics {
-                                contentDescription = UiStrings.translate("Traducir descripciones automáticamente")
-                            })
-                            Text("Traducir descripciones automáticamente", modifier = Modifier.weight(1f))
-                        }
-                        Text("Traducción local al idioma de Ajustes. Descarga idiomas al primer uso; el texto no sale del dispositivo.",
-                            style = MaterialTheme.typography.bodySmall)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(
-                                selected = showArchived,
-                                onClick = { showArchived = !showArchived; loadedItemLimit = 200; refresh() },
-                                label = { Text(if (showArchived) "Volver a la biblioteca" else "Mostrar papelera") },
-                            )
-                            if (showArchived && items.isNotEmpty()) {
-                                OutlinedButton(onClick = { pendingTrashPurge = true }) {
-                                    Text("Vaciar papelera")
+                            Column {
+                                SettingsActionRow(
+                                    symbol = "⌫",
+                                    title = if (showArchived) "Volver a la biblioteca" else "Mostrar papelera",
+                                    subtitle = "Elementos eliminados que puedes restaurar o vaciar",
+                                    onClick = {
+                                        showArchived = !showArchived
+                                        loadedItemLimit = 200
+                                        refresh()
+                                        section = HomeSection.LIBRARY
+                                    },
+                                )
+                                if (showArchived && items.isNotEmpty()) {
+                                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+                                    SettingsActionRow(
+                                        symbol = "⚠",
+                                        title = "Vaciar papelera",
+                                        onClick = { pendingTrashPurge = true },
+                                    )
                                 }
                             }
                         }

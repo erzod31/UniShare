@@ -173,6 +173,17 @@ internal object UiStrings {
         "Añadir a carpetas (separadas por comas)" to "Add to folders (comma-separated)",
         "Añadir etiquetas (separadas por comas)" to "Add tags (comma-separated)",
         "Aplicar" to "Apply",
+        "Apariencia e idioma" to "Appearance and language",
+        "Papelera" to "Trash",
+        "Sincronización directa por Tailscale" to "Direct synchronization via Tailscale",
+        "Analiza enlaces para completar su información" to "Analyze links to complete their information",
+        "Guarda tu biblioteca en un archivo .unishare.zip" to "Save your library to a .unishare.zip file",
+        "Fusiona elementos verificados sin perder cambios" to "Merge verified items without losing changes",
+        "Toca para alternar entre Sistema, Claro y Oscuro" to "Tap to cycle between System, Light, and Dark",
+        "Idioma de la interfaz y de la traducción local" to "Interface and local translation language",
+        "Elementos eliminados que puedes restaurar o vaciar" to "Deleted items you can restore or permanently empty",
+        "Abrir Ajustes y actualizaciones…" to "Open Settings and updates…",
+        "Cambiar" to "Change",
     )
 
     fun translate(value: String): String {
