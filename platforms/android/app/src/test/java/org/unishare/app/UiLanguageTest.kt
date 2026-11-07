@@ -33,6 +33,9 @@ class UiLanguageTest {
         )
         assertEquals("Folder: Reading  ×", UiStrings.translate("Carpeta: Reading  ×"))
         assertEquals("Delete (4)", UiStrings.translate("Eliminar (4)"))
+        assertEquals("Empty trash", UiStrings.translate("Vaciar papelera"))
+        assertEquals("Delete permanently (3)", UiStrings.translate("Eliminar definitivamente (3)"))
+        assertEquals("Organize (2)", UiStrings.translate("Organizar (2)"))
         assertEquals("4 items selected", UiStrings.translate("4 elementos seleccionados"))
         assertEquals(
             "Titles and summaries refreshed for 3 links. 1 site did not respond.",

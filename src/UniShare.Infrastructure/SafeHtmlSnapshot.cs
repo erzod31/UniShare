@@ -111,7 +111,8 @@ internal static partial class SafeHtmlSnapshot
         var title = Limit(post?.Title ?? Limit(CleanText(structuredTitle ?? string.Empty), 500) ??
             FirstValue(values, "og:title", "twitter:title") ?? documentTitle, 500);
         var siteName = FirstValue(values, "og:site_name", "application-name");
-        var author = post?.Author ?? FirstValue(values, "author", "article:author");
+        var author = post?.Author ?? FirstValue(values, "author", "article:author") ??
+            (IsYouTubeVideoUri(sourceUri) ? ExtractYouTubeVideoAuthor(html) : null);
         var promotionalDescription = FirstValue(
             values, "og:description", "twitter:description", "description");
         var contentSummary = post is null ? ExtractContentSummary(html, title, sourceUri) : post.Description;
@@ -304,6 +305,23 @@ internal static partial class SafeHtmlSnapshot
         try
         {
             return CleanText(JsonSerializer.Deserialize<string>($"\"{match.Groups["value"].Value}\"") ?? string.Empty);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string? ExtractYouTubeVideoAuthor(string html)
+    {
+        var match = YouTubeChannelNameRegex().Match(html);
+        if (!match.Success)
+        {
+            return null;
+        }
+        try
+        {
+            return Limit(CleanText(JsonSerializer.Deserialize<string>($"\"{match.Groups["value"].Value}\"") ?? string.Empty), 500);
         }
         catch (JsonException)
         {
@@ -667,6 +685,9 @@ internal static partial class SafeHtmlSnapshot
 
     [GeneratedRegex("\\\"shortDescription\\\"\\s*:\\s*\\\"(?<value>(?:\\\\.|[^\\\"\\\\])*)\\\"", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
     private static partial Regex YouTubeShortDescriptionRegex();
+
+    [GeneratedRegex("\\\"ownerChannelName\\\"\\s*:\\s*\\\"(?<value>(?:\\\\.|[^\\\"\\\\])*)\\\"", RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant)]
+    private static partial Regex YouTubeChannelNameRegex();
 
     private static readonly HashSet<string> ArticleContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {

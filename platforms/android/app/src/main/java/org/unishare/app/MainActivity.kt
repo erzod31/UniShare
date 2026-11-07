@@ -102,8 +102,14 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicInteger
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.draw.alpha
@@ -153,7 +159,7 @@ private data class LibraryRefreshSnapshot(
 
 class MainActivity : ComponentActivity() {
     private companion object {
-        const val ORIGIN_METADATA_MIGRATION = 7
+        const val ORIGIN_METADATA_MIGRATION = 8
         const val ORIGIN_METADATA_PREFERENCES = "origin_metadata_refresh"
     }
     private val activityScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -173,6 +179,11 @@ class MainActivity : ComponentActivity() {
     private var editingItem by mutableStateOf<SavedItem?>(null)
     private var pendingDeletion by mutableStateOf<SavedItem?>(null)
     private var pendingBulkDeletion by mutableStateOf(false)
+    private var pendingTrashPurge by mutableStateOf(false)
+    private var showBatchOrganize by mutableStateOf(false)
+    private var batchCollections by mutableStateOf("")
+    private var batchTags by mutableStateOf("")
+    private var batchFavorite by mutableStateOf(false)
     private var selectionMode by mutableStateOf(false)
     private var selectedItemIds by mutableStateOf<Set<String>>(emptySet())
     private var editingTitle by mutableStateOf("")
@@ -279,7 +290,7 @@ class MainActivity : ComponentActivity() {
             automaticOriginRefreshStarted = true
             activityScope.launch {
                 while (isSyncing) delay(250)
-                if (originMetadataMigrationPending()) refreshOriginMetadata(automaticOnly = true)
+                refreshOriginMetadata(automaticOnly = true)
             }
         }
         pollingJob?.cancel()
@@ -445,6 +456,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun needsAutomaticEnrichment(item: SavedItem): Boolean {
+        val originalUrl = item.originalUrl ?: return false
+        if (!SharePayload.isWebUrl(originalUrl)) return false
+        return item.description.isNullOrBlank() ||
+            LinkMetadata.isKnownNavigationJunk(item.description) ||
+            item.title == SharePayload.titleFromUrl(originalUrl) ||
+            LinkMetadata.isProvisionalSource(item.source, originalUrl)
+    }
+
     private fun refreshOriginMetadata(automaticOnly: Boolean) {
         if (isRefreshingOriginMetadata) {
             if (!automaticOnly) status = "Ya se están actualizando los títulos y los resúmenes."
@@ -453,8 +473,18 @@ class MainActivity : ComponentActivity() {
         isRefreshingOriginMetadata = true
         activityScope.launch {
             try {
+                val migrationPending = originMetadataMigrationPending()
                 val candidates = withContext(Dispatchers.IO) {
-                    store.listItemsForMetadataRefresh()
+                    val all = store.listItemsForMetadataRefresh()
+                    if (automaticOnly && !migrationPending) {
+                        all.filter(::needsAutomaticEnrichment)
+                    } else {
+                        all
+                    }
+                }
+                if (automaticOnly && candidates.isEmpty()) {
+                    if (migrationPending) markOriginMetadataMigrationCompleted()
+                    return@launch
                 }
                 if (!automaticOnly) {
                     status = if (candidates.isEmpty()) {
@@ -464,21 +494,30 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                var updated = 0
-                var unavailable = 0
-                for (item in candidates) {
-                    try {
-                        val changed = withContext(Dispatchers.IO) {
-                            val metadata = offlineDownloader.fetchMetadata(item.originalUrl!!) ?: return@withContext false
-                            store.applyFetchedMetadata(item.id, metadata)
+                val updatedCounter = AtomicInteger(0)
+                val unavailableCounter = AtomicInteger(0)
+                val semaphore = Semaphore(4)
+                coroutineScope {
+                    candidates.map { item ->
+                        async(Dispatchers.IO) {
+                            semaphore.withPermit {
+                                try {
+                                    val metadata = offlineDownloader.fetchMetadata(item.originalUrl!!)
+                                        ?: return@withPermit
+                                    if (store.applyFetchedMetadata(item.id, metadata)) {
+                                        updatedCounter.incrementAndGet()
+                                    }
+                                } catch (_: Exception) {
+                                    unavailableCounter.incrementAndGet()
+                                }
+                            }
                         }
-                        if (changed) {
-                            DirectSyncPreferences.markLocalChangePending(this@MainActivity)
-                            updated++
-                        }
-                    } catch (_: Exception) {
-                        unavailable++
-                    }
+                    }.awaitAll()
+                }
+                val updated = updatedCounter.get()
+                val unavailable = unavailableCounter.get()
+                if (updated > 0) {
+                    DirectSyncPreferences.markLocalChangePending(this@MainActivity)
                 }
                 if (updated > 0) {
                     refresh()
@@ -492,7 +531,7 @@ class MainActivity : ComponentActivity() {
                         "Los títulos y los resúmenes ya estaban actualizados."
                     }
                 }
-                if (automaticOnly && (candidates.isEmpty() || unavailable < candidates.size)) {
+                if (automaticOnly && migrationPending && (candidates.isEmpty() || unavailable < candidates.size)) {
                     markOriginMetadataMigrationCompleted()
                 }
             } finally {
@@ -665,6 +704,63 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun purgeTrash(onlySelected: Boolean = false) {
+        val ids = if (onlySelected) {
+            items.filter { it.id in selectedItemIds && it.deletedAt != null }.map { it.id }
+        } else {
+            emptyList()
+        }
+        activityScope.launch {
+            try {
+                val removed = withContext(Dispatchers.IO) {
+                    val count = store.purgeDeleted(ids.ifEmpty { null })
+                    store.collectOrphanedBlobs(gracePeriodMillis = 0L)
+                    count
+                }
+                clearSelection()
+                status = if (onlySelected && removed > 0) {
+                    if (removed == 1) "1 elemento eliminado definitivamente." else "$removed elementos eliminados definitivamente."
+                } else {
+                    "La papelera se ha vaciado definitivamente."
+                }
+                refresh()
+            } catch (error: Exception) {
+                status = error.message ?: "No se pudo actualizar el elemento."
+            }
+        }
+    }
+
+    private fun applySelectedOrganization() {
+        val selected = items.filter { it.id in selectedItemIds && it.deletedAt == null }.map { it.id }
+        if (selected.isEmpty()) {
+            showBatchOrganize = false
+            return
+        }
+        activityScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    store.applyBatchOrganization(
+                        selected,
+                        batchTags,
+                        batchCollections,
+                        if (batchFavorite) true else null,
+                    )
+                }
+                DirectSyncPreferences.markLocalChangePending(this@MainActivity)
+                showBatchOrganize = false
+                batchCollections = ""
+                batchTags = ""
+                batchFavorite = false
+                clearSelection()
+                status = "Cambios guardados."
+                refresh()
+                syncAfterChange()
+            } catch (error: Exception) {
+                status = error.message ?: "No se pudieron actualizar los elementos."
+            }
+        }
+    }
+
     private fun toggleSelection(itemId: String) {
         selectedItemIds = ItemBatchSelection.toggle(selectedItemIds, itemId)
         selectionMode = selectedItemIds.isNotEmpty()
@@ -784,6 +880,9 @@ class MainActivity : ComponentActivity() {
                         if (result.conflicts > 0) " y ${result.conflicts} conflictos." else "."
                 } else {
                     syncStatus = ""
+                }
+                if (result.receivedItems > 0 || result.updatedItems > 0) {
+                    refreshOriginMetadata(automaticOnly = true)
                 }
             } catch (error: Exception) {
                 DirectSyncScheduler.enqueueNow(this@MainActivity)
@@ -1351,6 +1450,9 @@ class MainActivity : ComponentActivity() {
                                             },
                                         ) { Text("Todos") }
                                         if (selectedActive > 0) {
+                                            TextButton(onClick = { showBatchOrganize = true }) {
+                                                Text("Organizar ($selectedActive)")
+                                            }
                                             TextButton(
                                                 onClick = { pendingBulkDeletion = true },
                                                 colors = ButtonDefaults.textButtonColors(
@@ -1362,6 +1464,12 @@ class MainActivity : ComponentActivity() {
                                             TextButton(onClick = { setSelectedArchived(false) }) {
                                                 Text("Restaurar ($selectedArchived)")
                                             }
+                                            TextButton(
+                                                onClick = { pendingTrashPurge = true },
+                                                colors = ButtonDefaults.textButtonColors(
+                                                    contentColor = MaterialTheme.colorScheme.error,
+                                                ),
+                                            ) { Text("Eliminar definitivamente ($selectedArchived)") }
                                         }
                                     }
                                 }
@@ -1544,11 +1652,18 @@ class MainActivity : ComponentActivity() {
                         }
                         Text("Traducción local al idioma de Ajustes. Descarga idiomas al primer uso; el texto no sale del dispositivo.",
                             style = MaterialTheme.typography.bodySmall)
-                        FilterChip(
-                            selected = showArchived,
-                            onClick = { showArchived = !showArchived; loadedItemLimit = 200; refresh() },
-                            label = { Text(if (showArchived) "Volver a la biblioteca" else "Mostrar papelera") },
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = showArchived,
+                                onClick = { showArchived = !showArchived; loadedItemLimit = 200; refresh() },
+                                label = { Text(if (showArchived) "Volver a la biblioteca" else "Mostrar papelera") },
+                            )
+                            if (showArchived && items.isNotEmpty()) {
+                                OutlinedButton(onClick = { pendingTrashPurge = true }) {
+                                    Text("Vaciar papelera")
+                                }
+                            }
+                        }
                         Spacer(Modifier.height(24.dp))
                         }
                     }
@@ -1614,8 +1729,14 @@ class MainActivity : ComponentActivity() {
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("UniShare conservó las dos versiones para evitar pérdida de datos.")
-                        Text("Mi versión: ${conflict.localTitle}", fontWeight = FontWeight.SemiBold)
-                        Text("Versión recibida: ${conflict.remoteTitle}", fontWeight = FontWeight.SemiBold)
+                        Text("Mi versión: ${if (conflict.localFavorite) "★ " else ""}${conflict.localTitle}", fontWeight = FontWeight.SemiBold)
+                        if (!conflict.localDescription.isNullOrBlank()) {
+                            Text("Notas (mía): ${conflict.localDescription}", style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text("Versión recibida: ${if (conflict.remoteFavorite) "★ " else ""}${conflict.remoteTitle}", fontWeight = FontWeight.SemiBold)
+                        if (!conflict.remoteDescription.isNullOrBlank()) {
+                            Text("Notas (recibida): ${conflict.remoteDescription}", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 },
                 confirmButton = {
@@ -1801,6 +1922,67 @@ class MainActivity : ComponentActivity() {
                 },
                 dismissButton = {
                     TextButton(onClick = { pendingBulkDeletion = false }) { Text("Cancelar") }
+                },
+            )
+        }
+
+        if (pendingTrashPurge) {
+            val selectedDeletedCount = items.count { it.id in selectedItemIds && it.deletedAt != null }
+            AlertDialog(
+                onDismissRequest = { pendingTrashPurge = false },
+                title = { Text("¿Vaciar la papelera definitivamente?") },
+                text = {
+                    Text("Esta acción eliminará definitivamente los elementos de la Papelera en este dispositivo y liberará espacio.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            pendingTrashPurge = false
+                            purgeTrash(onlySelected = selectedDeletedCount > 0)
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) {
+                        Text("Eliminar definitivamente")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { pendingTrashPurge = false }) { Text("Cancelar") }
+                },
+            )
+        }
+
+        if (showBatchOrganize) {
+            AlertDialog(
+                onDismissRequest = { showBatchOrganize = false },
+                title = { Text("Organizar selección") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = batchCollections,
+                            onValueChange = { batchCollections = it },
+                            label = { Text("Añadir a carpetas (separadas por comas)") },
+                            singleLine = true,
+                        )
+                        OutlinedTextField(
+                            value = batchTags,
+                            onValueChange = { batchTags = it },
+                            label = { Text("Añadir etiquetas (separadas por comas)") },
+                            singleLine = true,
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(
+                                checked = batchFavorite,
+                                onCheckedChange = { batchFavorite = it },
+                            )
+                            Text("Marcar como favorito")
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = ::applySelectedOrganization) { Text("Aplicar") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showBatchOrganize = false }) { Text("Cancelar") }
                 },
             )
         }

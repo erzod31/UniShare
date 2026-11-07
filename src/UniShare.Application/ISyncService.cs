@@ -35,4 +35,8 @@ public sealed record SyncConflict(
     Guid SourceDeviceId,
     string LocalTitle,
     string RemoteTitle,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? LocalDescription = null,
+    string? RemoteDescription = null,
+    bool LocalFavorite = false,
+    bool RemoteFavorite = false);

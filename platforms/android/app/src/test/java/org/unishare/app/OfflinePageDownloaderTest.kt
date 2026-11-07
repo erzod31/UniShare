@@ -14,7 +14,11 @@ class OfflinePageDownloaderTest {
     fun `rejects local and private addresses`() {
         assertTrue(OfflineNetworkPolicy.isUnsafe(InetAddress.getByName("127.0.0.1")))
         assertTrue(OfflineNetworkPolicy.isUnsafe(InetAddress.getByName("192.168.1.20")))
+        assertTrue(OfflineNetworkPolicy.isUnsafe(InetAddress.getByAddress(byteArrayOf(100, 64, 0, 1))))
+        assertTrue(OfflineNetworkPolicy.isUnsafe(InetAddress.getByAddress(byteArrayOf(100, 127, -1, -2))))
+        assertTrue(OfflineNetworkPolicy.isUnsafe(InetAddress.getByName("198.18.0.1")))
         assertTrue(OfflineNetworkPolicy.isUnsafe(InetAddress.getByName("fc00::1")))
+        assertTrue(OfflineNetworkPolicy.isUnsafe(InetAddress.getByName("2001:db8::1")))
         assertFalse(OfflineNetworkPolicy.isUnsafe(InetAddress.getByName("93.184.216.34")))
     }
 

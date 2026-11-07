@@ -64,7 +64,7 @@ if ($distribution.schemaVersion -ne 1 -or $distribution.productId -ne 'unishare'
     ($null -ne $distribution.extensionId -and $distribution.extensionId -cnotmatch '^[a-p]{32}$')) {
     throw 'Identidad/canal de distribución no válido.'
 }
-if (@($manifest.permissions | Where-Object { $_ -notin @('activeTab', 'scripting', 'storage') }).Count -ne 0) {
+if (@($manifest.permissions | Where-Object { $_ -notin @('activeTab', 'scripting', 'storage', 'contextMenus') }).Count -ne 0) {
     throw 'La extensión no necesita permisos adicionales para inspeccionar su propia identidad.'
 }
 

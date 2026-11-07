@@ -4,12 +4,31 @@ public interface IBackupService
 {
     Task<BackupSummary> ExportAsync(string destinationPath, CancellationToken cancellationToken = default);
 
+    Task<BackupSummary> ExportEncryptedAsync(
+        string destinationPath,
+        string password,
+        CancellationToken cancellationToken = default) =>
+        ExportAsync(destinationPath, cancellationToken);
+
     Task<BackupSummary> InspectAsync(string backupPath, CancellationToken cancellationToken = default);
+
+    Task<BackupSummary> InspectAsync(
+        string backupPath,
+        string? password,
+        CancellationToken cancellationToken = default) =>
+        InspectAsync(backupPath, cancellationToken);
 
     Task<BackupSummary> RestoreToNewProfileAsync(
         string backupPath,
         string destinationProfile,
         CancellationToken cancellationToken = default);
+
+    Task<BackupSummary> RestoreToNewProfileAsync(
+        string backupPath,
+        string destinationProfile,
+        string? password,
+        CancellationToken cancellationToken = default) =>
+        RestoreToNewProfileAsync(backupPath, destinationProfile, cancellationToken);
 }
 
 public interface ISelectiveBackupService

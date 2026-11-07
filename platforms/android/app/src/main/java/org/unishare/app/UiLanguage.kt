@@ -162,6 +162,17 @@ internal object UiStrings {
             "Use a valid HTTP or HTTPS link to associate it with the file.",
         "Sincronizado" to "Synchronized", "Sincronización pendiente" to "Synchronization pending",
         "¿Eliminar este elemento?" to "Delete this item?",
+        "Vaciar papelera" to "Empty trash",
+        "Eliminar definitivamente" to "Delete permanently",
+        "¿Vaciar la papelera definitivamente?" to "Permanently empty trash?",
+        "Esta acción eliminará definitivamente los elementos de la Papelera en este dispositivo y liberará espacio." to
+            "This action will permanently delete the items in Trash on this device and free up space.",
+        "La papelera se ha vaciado definitivamente." to "Trash has been permanently emptied.",
+        "Organizar" to "Organize",
+        "Organizar selección" to "Organize selection",
+        "Añadir a carpetas (separadas por comas)" to "Add to folders (comma-separated)",
+        "Añadir etiquetas (separadas por comas)" to "Add tags (comma-separated)",
+        "Aplicar" to "Apply",
     )
 
     fun translate(value: String): String {
@@ -171,6 +182,12 @@ internal object UiStrings {
             .replace(Regex("^Carpeta: (.+)  ×$"), "Folder: $1  ×")
             .replace(Regex("^Eliminar \\((\\d+)\\)$"), "Delete ($1)")
             .replace(Regex("^Restaurar \\((\\d+)\\)$"), "Restore ($1)")
+            .replace(Regex("^Eliminar definitivamente \\((\\d+)\\)$"), "Delete permanently ($1)")
+            .replace(Regex("^Organizar \\((\\d+)\\)$"), "Organize ($1)")
+            .replace(Regex("^(\\d+) elementos eliminados definitivamente\\.$"), "$1 items permanently deleted.")
+            .replace(Regex("^1 elemento eliminado definitivamente\\.$"), "1 item permanently deleted.")
+            .replace(Regex("^Notas \\(mía\\): (.+)$"), "Notes (mine): $1")
+            .replace(Regex("^Notas \\(recibida\\): (.+)$"), "Notes (received): $1")
             .replace(Regex("^Resolver conflictos \\((\\d+)\\)$"), "Resolve conflicts ($1)")
             .replace(Regex("^(\\d+) por revisar$"), "$1 to review")
             .replace(Regex("^(\\d+) elementos seleccionados$"), "$1 items selected")

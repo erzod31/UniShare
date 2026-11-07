@@ -29,6 +29,76 @@ public sealed class PortableBackupService : IBackupService, ISelectiveBackupServ
         CancellationToken cancellationToken = default) =>
         ExportCoreAsync(destinationPath, null, null, null, cancellationToken);
 
+    public async Task<BackupSummary> ExportEncryptedAsync(
+        string destinationPath,
+        string password,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(password);
+        var destination = Path.GetFullPath(destinationPath);
+        if (File.Exists(destination))
+        {
+            throw new IOException("El destino ya existe; UniShare no sobrescribe respaldos silenciosamente.");
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(destination) ?? throw new InvalidOperationException(
+            "El respaldo necesita un directorio padre."));
+        var innerTemporary = destination + $".inner-{Guid.NewGuid():N}.zip";
+        var outerTemporary = destination + $".encrypted-{Guid.NewGuid():N}.zip";
+        try
+        {
+            var summary = await ExportCoreAsync(innerTemporary, null, null, null, cancellationToken);
+            var plaintext = await File.ReadAllBytesAsync(innerTemporary, cancellationToken);
+            var salt = RandomNumberGenerator.GetBytes(16);
+            var nonce = RandomNumberGenerator.GetBytes(12);
+            var tag = new byte[16];
+            var ciphertext = new byte[plaintext.Length];
+            var key = Rfc2898DeriveBytes.Pbkdf2(
+                Encoding.UTF8.GetBytes(password),
+                salt,
+                210_000,
+                HashAlgorithmName.SHA256,
+                32);
+            using (var aes = new AesGcm(key, 16))
+            {
+                aes.Encrypt(nonce, plaintext, ciphertext, tag, "unishare-encrypted-v1"u8);
+            }
+            CryptographicOperations.ZeroMemory(key);
+
+            var envelope = new EncryptedBackupHeader(
+                "unishare-encrypted-v1",
+                "PBKDF2-SHA256",
+                210_000,
+                Convert.ToBase64String(salt),
+                Convert.ToBase64String(nonce),
+                Convert.ToBase64String(tag));
+            await using (var output = new FileStream(
+                outerTemporary, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 128 * 1024,
+                FileOptions.Asynchronous | FileOptions.SequentialScan))
+            using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: false))
+            {
+                _ = await WriteJsonAsync(archive, "encryption.json", envelope, cancellationToken);
+                var payloadEntry = archive.CreateEntry("payload.enc", CompressionLevel.NoCompression);
+                await using var entryStream = payloadEntry.Open();
+                await entryStream.WriteAsync(ciphertext, cancellationToken);
+            }
+
+            File.Move(outerTemporary, destination);
+            return summary;
+        }
+        finally
+        {
+            if (File.Exists(innerTemporary))
+            {
+                File.Delete(innerTemporary);
+            }
+            if (File.Exists(outerTemporary))
+            {
+                File.Delete(outerTemporary);
+            }
+        }
+    }
+
     public Task<BackupSummary> ExportAsync(
         string destinationPath,
         IReadOnlySet<string> includedBlobHashes,
@@ -214,7 +284,53 @@ public sealed class PortableBackupService : IBackupService, ISelectiveBackupServ
             snapshot.DeviceId);
     }
 
+    public static bool IsEncryptedBackup(string backupPath)
+    {
+        if (!File.Exists(backupPath))
+        {
+            return false;
+        }
+        try
+        {
+            using var archive = ZipFile.OpenRead(backupPath);
+            return archive.GetEntry("encryption.json") is not null &&
+                   archive.GetEntry("payload.enc") is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public Task<BackupSummary> InspectAsync(
+        string backupPath,
+        CancellationToken cancellationToken = default) =>
+        InspectAsync(backupPath, password: null, cancellationToken);
+
     public async Task<BackupSummary> InspectAsync(
+        string backupPath,
+        string? password,
+        CancellationToken cancellationToken = default)
+    {
+        if (IsEncryptedBackup(backupPath))
+        {
+            var decrypted = await DecryptBackupToTemporaryAsync(backupPath, password, cancellationToken);
+            try
+            {
+                return await InspectCoreAsync(decrypted, cancellationToken);
+            }
+            finally
+            {
+                if (File.Exists(decrypted))
+                {
+                    File.Delete(decrypted);
+                }
+            }
+        }
+        return await InspectCoreAsync(backupPath, cancellationToken);
+    }
+
+    private static async Task<BackupSummary> InspectCoreAsync(
         string backupPath,
         CancellationToken cancellationToken = default)
     {
@@ -285,7 +401,94 @@ public sealed class PortableBackupService : IBackupService, ISelectiveBackupServ
             manifest.TotalBlobBytes);
     }
 
+    public Task<BackupSummary> RestoreToNewProfileAsync(
+        string backupPath,
+        string destinationProfile,
+        CancellationToken cancellationToken = default) =>
+        RestoreToNewProfileAsync(backupPath, destinationProfile, password: null, cancellationToken);
+
     public async Task<BackupSummary> RestoreToNewProfileAsync(
+        string backupPath,
+        string destinationProfile,
+        string? password,
+        CancellationToken cancellationToken = default)
+    {
+        if (IsEncryptedBackup(backupPath))
+        {
+            var decrypted = await DecryptBackupToTemporaryAsync(backupPath, password, cancellationToken);
+            try
+            {
+                return await RestoreToNewProfileCoreAsync(decrypted, destinationProfile, cancellationToken);
+            }
+            finally
+            {
+                if (File.Exists(decrypted))
+                {
+                    File.Delete(decrypted);
+                }
+            }
+        }
+        return await RestoreToNewProfileCoreAsync(backupPath, destinationProfile, cancellationToken);
+    }
+
+    private static async Task<string> DecryptBackupToTemporaryAsync(
+        string backupPath,
+        string? password,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            throw new InvalidDataException("Este respaldo está protegido con contraseña.");
+        }
+
+        await using var input = new FileStream(
+            Path.GetFullPath(backupPath), FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024,
+            FileOptions.Asynchronous | FileOptions.SequentialScan);
+        using var archive = new ZipArchive(input, ZipArchiveMode.Read, leaveOpen: false);
+        var entries = ValidateEntrySet(archive);
+        var header = await ReadJsonAsync<EncryptedBackupHeader>(
+            GetRequiredEntry(entries, "encryption.json"), cancellationToken);
+        if (header.Format != "unishare-encrypted-v1" || header.Kdf != "PBKDF2-SHA256" ||
+            header.Iterations is < 10_000 or > 5_000_000)
+        {
+            throw new NotSupportedException("Formato de cifrado de respaldo no compatible.");
+        }
+
+        var salt = Convert.FromBase64String(header.Salt);
+        var nonce = Convert.FromBase64String(header.Nonce);
+        var tag = Convert.FromBase64String(header.Tag);
+        var payloadEntry = GetRequiredEntry(entries, "payload.enc");
+        await using var payloadStream = payloadEntry.Open();
+        using var ciphertextStream = new MemoryStream();
+        await payloadStream.CopyToAsync(ciphertextStream, cancellationToken);
+        var ciphertext = ciphertextStream.ToArray();
+        var plaintext = new byte[ciphertext.Length];
+        var key = Rfc2898DeriveBytes.Pbkdf2(
+            Encoding.UTF8.GetBytes(password),
+            salt,
+            header.Iterations,
+            HashAlgorithmName.SHA256,
+            32);
+        try
+        {
+            using var aes = new AesGcm(key, 16);
+            aes.Decrypt(nonce, ciphertext, tag, plaintext, "unishare-encrypted-v1"u8);
+        }
+        catch (CryptographicException exception)
+        {
+            throw new InvalidDataException("La contraseña del respaldo es incorrecta o el archivo está dañado.", exception);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(key);
+        }
+
+        var temporary = Path.Combine(Path.GetTempPath(), $"unishare-decrypted-{Guid.NewGuid():N}.zip");
+        await File.WriteAllBytesAsync(temporary, plaintext, cancellationToken);
+        return temporary;
+    }
+
+    private async Task<BackupSummary> RestoreToNewProfileCoreAsync(
         string backupPath,
         string destinationProfile,
         CancellationToken cancellationToken = default)
@@ -771,4 +974,12 @@ public sealed class PortableBackupService : IBackupService, ISelectiveBackupServ
         Guid DeviceId);
 
     private sealed record BlobAvailabilityRecord(string Sha256);
+
+    private sealed record EncryptedBackupHeader(
+        string Format,
+        string Kdf,
+        int Iterations,
+        string Salt,
+        string Nonce,
+        string Tag);
 }

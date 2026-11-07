@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO.Compression;
 using System.Security.Cryptography;
@@ -26,6 +27,9 @@ public sealed class DirectSyncServer : IAsyncDisposable
     private const long MaximumInventoryBytes = 8L * 1024 * 1024;
     private const long MaximumBrowserCaptureBytes = 12L * 1024 * 1024;
     private const int MaximumInventoryHashes = 100_000;
+    private const long MinimumCachedBlobBytes = 64L * 1024;
+    private const int MaximumFailedAuthAttempts = 12;
+    private static readonly TimeSpan AuthThrottleWindow = TimeSpan.FromSeconds(10);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
@@ -37,6 +41,10 @@ public sealed class DirectSyncServer : IAsyncDisposable
     private readonly ISyncService _merge;
     private readonly LibraryService? _library;
     private readonly SemaphoreSlim _syncGate = new(1, 1);
+    private readonly ConcurrentDictionary<string, VerifiedBlobMetadata> _verifiedBlobs = new(StringComparer.Ordinal);
+    private readonly Lock _authLock = new();
+    private int _failedAuthAttempts;
+    private DateTimeOffset _authWindowStartUtc = DateTimeOffset.MinValue;
     private WebApplication? _application;
 
     public DirectSyncServer(
@@ -57,6 +65,8 @@ public sealed class DirectSyncServer : IAsyncDisposable
     public DirectSyncConfiguration Configuration { get; private set; }
 
     public bool IsRunning => _application is not null;
+
+    public event Action? LibraryChanged;
 
     public void UpdatePublicEndpoint(string rawEndpoint)
     {
@@ -79,6 +89,20 @@ public sealed class DirectSyncServer : IAsyncDisposable
         var updated = Configuration with { PublicEndpoint = endpoint };
         SaveConfiguration(updated);
         Configuration = updated;
+    }
+
+    public string RotatePairingKey()
+    {
+        var token = GeneratePairingKey();
+        var updated = Configuration with { PairingKey = token };
+        SaveConfiguration(updated);
+        Configuration = updated;
+        lock (_authLock)
+        {
+            _failedAuthAttempts = 0;
+            _authWindowStartUtc = DateTimeOffset.MinValue;
+        }
+        return token;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -197,6 +221,7 @@ public sealed class DirectSyncServer : IAsyncDisposable
                 title = item.Title,
                 offline = request.SaveOffline,
             }, JsonOptions, context.RequestAborted);
+            LibraryChanged?.Invoke();
         }
         catch (JsonException exception)
         {
@@ -300,6 +325,10 @@ public sealed class DirectSyncServer : IAsyncDisposable
                     clientThrough.Value.ToString(CultureInfo.InvariantCulture);
             }
             await context.Response.SendFileAsync(outgoing, context.RequestAborted);
+            if (imported.ImportedItems > 0 || imported.UpdatedItems > 0 || imported.Conflicts > 0)
+            {
+                LibraryChanged?.Invoke();
+            }
         }
         catch (InvalidDataException exception)
         {
@@ -446,23 +475,62 @@ public sealed class DirectSyncServer : IAsyncDisposable
     private async Task<bool> LocalBlobIsValidAsync(string hash, CancellationToken cancellationToken)
     {
         var path = Path.Combine(_profileRoot, "blobs", hash[..2], hash.Substring(2, 2), hash);
-        if (!File.Exists(path))
+        var info = new FileInfo(path);
+        if (!info.Exists)
         {
+            _verifiedBlobs.TryRemove(hash, out _);
             return false;
         }
 
         try
         {
+            var length = info.Length;
+            var writeTicks = info.LastWriteTimeUtc.Ticks;
+            if (length >= MinimumCachedBlobBytes &&
+                _verifiedBlobs.TryGetValue(hash, out var cached) &&
+                cached.Length == length &&
+                cached.LastWriteTimeTicks == writeTicks &&
+                await ReadHeaderSampleAsync(path, cancellationToken) == cached.HeaderSample)
+            {
+                return true;
+            }
+
             await using var stream = new FileStream(
                 path, FileMode.Open, FileAccess.Read, FileShare.Read, 128 * 1024,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
             var actual = await SHA256.HashDataAsync(stream, cancellationToken);
-            return CryptographicOperations.FixedTimeEquals(actual, Convert.FromHexString(hash));
+            var valid = CryptographicOperations.FixedTimeEquals(actual, Convert.FromHexString(hash));
+            if (valid && length >= MinimumCachedBlobBytes)
+            {
+                var sample = await ReadHeaderSampleAsync(path, cancellationToken);
+                _verifiedBlobs[hash] = new VerifiedBlobMetadata(length, writeTicks, sample);
+            }
+            else
+            {
+                _verifiedBlobs.TryRemove(hash, out _);
+            }
+            return valid;
         }
         catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
         {
+            _verifiedBlobs.TryRemove(hash, out _);
             return false;
         }
+    }
+
+    private static async Task<ulong> ReadHeaderSampleAsync(string path, CancellationToken cancellationToken)
+    {
+        var buffer = new byte[64];
+        await using var stream = new FileStream(
+            path, FileMode.Open, FileAccess.Read, FileShare.Read, 64, FileOptions.Asynchronous);
+        var read = await stream.ReadAsync(buffer, cancellationToken);
+        ulong hash = 14695981039346656037UL;
+        for (var i = 0; i < read; i++)
+        {
+            hash ^= buffer[i];
+            hash *= 1099511628211UL;
+        }
+        return hash;
     }
 
     private static bool IsValidHash(string hash) =>
@@ -470,16 +538,45 @@ public sealed class DirectSyncServer : IAsyncDisposable
 
     private bool Authenticate(HttpContext context)
     {
+        var now = DateTimeOffset.UtcNow;
+        lock (_authLock)
+        {
+            if (now - _authWindowStartUtc > AuthThrottleWindow)
+            {
+                _failedAuthAttempts = 0;
+                _authWindowStartUtc = now;
+            }
+            if (_failedAuthAttempts >= MaximumFailedAuthAttempts)
+            {
+                context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                context.Response.Headers.RetryAfter = "10";
+                return false;
+            }
+        }
+
         var supplied = context.Request.Headers.Authorization.ToString();
         const string scheme = "Bearer ";
         if (!supplied.StartsWith(scheme, StringComparison.OrdinalIgnoreCase) ||
             !FixedTimeEquals(supplied[scheme.Length..].Trim(), Configuration.PairingKey))
         {
+            lock (_authLock)
+            {
+                if (now - _authWindowStartUtc > AuthThrottleWindow)
+                {
+                    _failedAuthAttempts = 0;
+                    _authWindowStartUtc = now;
+                }
+                _failedAuthAttempts++;
+            }
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             context.Response.Headers.WWWAuthenticate = "Bearer";
             return false;
         }
 
+        lock (_authLock)
+        {
+            _failedAuthAttempts = 0;
+        }
         return true;
     }
 
@@ -503,12 +600,15 @@ public sealed class DirectSyncServer : IAsyncDisposable
         }
 
         Directory.CreateDirectory(configRoot);
-        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
-            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var token = GeneratePairingKey();
         var created = new DirectSyncConfiguration(requestedPort ?? 47831, token);
         SaveConfiguration(created, overwrite: false);
         return created;
     }
+
+    private static string GeneratePairingKey() =>
+        Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     private void SaveConfiguration(DirectSyncConfiguration configuration, bool overwrite = true)
     {
@@ -653,6 +753,11 @@ public sealed class DirectSyncServer : IAsyncDisposable
         long Through,
         string Revision,
         HashSet<string> ItemIds);
+
+    private readonly record struct VerifiedBlobMetadata(
+        long Length,
+        long LastWriteTimeTicks,
+        ulong HeaderSample);
 }
 
 internal sealed record BrowserCaptureRequest(

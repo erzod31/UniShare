@@ -20,8 +20,10 @@
                   SelectionMode="Single" HeadersVisibility="Column" CanUserAddRows="False">
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Mi versión" Binding="{Binding LocalTitle}" Width="*" />
+                <DataGridTextColumn Header="Notas (mía)" Binding="{Binding LocalDescription}" Width="*" />
                 <DataGridTextColumn Header="Versión recibida" Binding="{Binding RemoteTitle}" Width="*" />
-                <DataGridTextColumn Header="Detectado" Binding="{Binding CreatedAt, StringFormat=g}" Width="150" />
+                <DataGridTextColumn Header="Notas (recibida)" Binding="{Binding RemoteDescription}" Width="*" />
+                <DataGridTextColumn Header="Detectado" Binding="{Binding CreatedAt, StringFormat=g}" Width="140" />
             </DataGrid.Columns>
         </DataGrid>
         <DockPanel Grid.Row="2" Margin="0,14,0,0">

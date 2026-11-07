@@ -67,7 +67,28 @@ data class LinkMetadata(
             return compactNavigation ||
                 normalized.contains("OVERPERSAUTEURSRECHTCONTACTCREATORS") ||
                 normalized.contains("ABOUTPRESSCOPYRIGHTCONTACTCREATORS") ||
-                normalized.contains("ACERCADEPRENSADERECHOSDEAUTORCONTACTARCREADORES")
+                normalized.contains("ACERCADEPRENSADERECHOSDEAUTORCONTACTARCREADORES") ||
+                normalized.startsWith("DISFRUTA DE LOS VÍDEOS Y LA MÚSICA QUE TE GUSTAN") ||
+                normalized.startsWith("DISFRUTA DE LOS VIDEOS Y LA MUSICA QUE TE GUSTAN") ||
+                normalized.startsWith("ENJOY THE VIDEOS AND MUSIC YOU LOVE")
+        }
+
+        internal fun isProvisionalSource(source: String?, originalUrl: String?): Boolean {
+            if (source.isNullOrBlank()) return true
+            val trimmed = source.trim().trimEnd('.')
+            if (trimmed.equals("m.youtube.com", true) ||
+                trimmed.equals("www.youtube.com", true) ||
+                trimmed.equals("youtube.com", true) ||
+                trimmed.equals("youtu.be", true)
+            ) return true
+            if (originalUrl.isNullOrBlank()) return false
+            val host = runCatching { URI(originalUrl).host.orEmpty().trimEnd('.') }.getOrDefault("")
+            if (host.isEmpty()) return false
+            val bareHost = host.removePrefix("www.").removePrefix("m.")
+            return trimmed.equals(host, true) ||
+                trimmed.equals(bareHost, true) ||
+                trimmed.equals("www.$bareHost", true) ||
+                trimmed.equals("m.$bareHost", true)
         }
     }
 }
@@ -92,14 +113,14 @@ class OfflinePageDownloader(private val context: Context) {
         var uri = initialUri
         repeat(MAXIMUM_REDIRECTS + 1) { redirectCount ->
             require(SharePayload.isWebUrl(uri.toASCIIString())) { "El enlace no es válido" }
-            OfflineNetworkPolicy.requirePublic(uri)
-            val connection = (URL(uri.toASCIIString()).openConnection() as HttpURLConnection).apply {
+            val validatedAddress = OfflineNetworkPolicy.requirePublic(uri)
+            val connection = OfflineNetworkPolicy.openPinnedConnection(uri, validatedAddress).apply {
                 requestMethod = "GET"
                 connectTimeout = 15_000
                 readTimeout = 30_000
                 instanceFollowRedirects = false
                 setRequestProperty("Accept", if (oEmbedFor == null) "text/html,application/xhtml+xml;q=0.9" else "application/json")
-                setRequestProperty("User-Agent", "UniShare-Android/${BuildConfig.VERSION_NAME}")
+                setRequestProperty("User-Agent", "UniShare/${BuildConfig.VERSION_NAME}")
             }
             try {
                 when (val code = connection.responseCode) {
@@ -155,14 +176,14 @@ class OfflinePageDownloader(private val context: Context) {
         var uri = URI(rawUrl.trim())
         repeat(MAXIMUM_REDIRECTS + 1) { redirectCount ->
             require(SharePayload.isWebUrl(uri.toASCIIString())) { "El enlace de descarga no es válido" }
-            OfflineNetworkPolicy.requirePublic(uri)
-            val connection = (URL(uri.toASCIIString()).openConnection() as HttpURLConnection).apply {
+            val validatedAddress = OfflineNetworkPolicy.requirePublic(uri)
+            val connection = OfflineNetworkPolicy.openPinnedConnection(uri, validatedAddress).apply {
                 requestMethod = "GET"
                 connectTimeout = 15_000
                 readTimeout = 30_000
                 instanceFollowRedirects = false
                 setRequestProperty("Accept", "text/html,application/xhtml+xml,application/pdf,*/*;q=0.8")
-                setRequestProperty("User-Agent", "UniShare-Android/${BuildConfig.VERSION_NAME}")
+                setRequestProperty("User-Agent", "UniShare/${BuildConfig.VERSION_NAME}")
             }
             try {
                 when (val code = connection.responseCode) {
@@ -251,11 +272,55 @@ class OfflinePageDownloader(private val context: Context) {
 }
 
 object OfflineNetworkPolicy {
-    fun requirePublic(uri: URI) {
+    fun requirePublic(uri: URI): InetAddress {
         val addresses = InetAddress.getAllByName(uri.host)
         require(addresses.isNotEmpty() && addresses.none(::isUnsafe)) {
             "UniShare no descarga páginas desde direcciones privadas o locales"
         }
+        return addresses.first()
+    }
+
+    fun openPinnedConnection(uri: URI, validatedAddress: InetAddress): HttpURLConnection {
+        val pinnedAddress = InetAddress.getByAddress(uri.host, validatedAddress.address)
+        if (uri.scheme.equals("https", ignoreCase = true)) {
+            val connection = URL(uri.toASCIIString()).openConnection() as javax.net.ssl.HttpsURLConnection
+            val delegate = connection.sslSocketFactory
+            connection.sslSocketFactory = object : javax.net.ssl.SSLSocketFactory() {
+                override fun getDefaultCipherSuites(): Array<String> = delegate.defaultCipherSuites
+                override fun getSupportedCipherSuites(): Array<String> = delegate.supportedCipherSuites
+                override fun createSocket(s: java.net.Socket?, host: String?, port: Int, autoClose: Boolean): java.net.Socket =
+                    delegate.createSocket(s, host, port, autoClose)
+                override fun createSocket(host: String?, port: Int): java.net.Socket {
+                    val raw = java.net.Socket()
+                    raw.connect(java.net.InetSocketAddress(pinnedAddress, port), 15_000)
+                    return delegate.createSocket(raw, uri.host, port, true)
+                }
+                override fun createSocket(host: String?, port: Int, localHost: InetAddress?, localPort: Int): java.net.Socket {
+                    val raw = java.net.Socket(null as java.net.Proxy?)
+                    raw.bind(java.net.InetSocketAddress(localHost, localPort))
+                    raw.connect(java.net.InetSocketAddress(pinnedAddress, port), 15_000)
+                    return delegate.createSocket(raw, uri.host, port, true)
+                }
+                override fun createSocket(host: InetAddress?, port: Int): java.net.Socket =
+                    createSocket(uri.host, port)
+                override fun createSocket(address: InetAddress?, port: Int, localAddress: InetAddress?, localPort: Int): java.net.Socket =
+                    createSocket(uri.host, port, localAddress, localPort)
+            }
+            return connection
+        }
+
+        val literalHost = if (validatedAddress.address.size == 16) "[${validatedAddress.hostAddress}]" else validatedAddress.hostAddress
+        val file = buildString {
+            append(uri.rawPath?.takeIf { it.isNotEmpty() } ?: "/")
+            if (!uri.rawQuery.isNullOrEmpty()) {
+                append('?').append(uri.rawQuery)
+            }
+        }
+        val port = if (uri.port > 0) uri.port else 80
+        val connection = URL("http", literalHost, port, file).openConnection() as HttpURLConnection
+        val hostHeader = if (uri.port > 0 && uri.port != 80) "${uri.host}:${uri.port}" else uri.host
+        connection.setRequestProperty("Host", hostHeader)
+        return connection
     }
 
     fun isUnsafe(address: InetAddress): Boolean {
@@ -263,7 +328,36 @@ object OfflineNetworkPolicy {
             address.isSiteLocalAddress || address.isMulticastAddress
         ) return true
         val bytes = address.address
-        return bytes.size == 16 && (bytes[0].toInt() and 0xfe) == 0xfc
+        if (bytes.size == 4) {
+            return isUnsafeIpv4(bytes[0].toInt() and 0xff, bytes[1].toInt() and 0xff, bytes[2].toInt() and 0xff)
+        }
+        if (bytes.size == 16) {
+            val isIpv4Mapped = (0..9).all { bytes[it].toInt() == 0 } &&
+                (bytes[10].toInt() and 0xff) == 0xff && (bytes[11].toInt() and 0xff) == 0xff
+            if (isIpv4Mapped) {
+                return isUnsafeIpv4(bytes[12].toInt() and 0xff, bytes[13].toInt() and 0xff, bytes[14].toInt() and 0xff)
+            }
+            val isDocumentationV6 = (bytes[0].toInt() and 0xff) == 0x20 &&
+                (bytes[1].toInt() and 0xff) == 0x01 &&
+                (bytes[2].toInt() and 0xff) == 0x0d &&
+                (bytes[3].toInt() and 0xff) == 0xb8
+            return (bytes[0].toInt() and 0xfe) == 0xfc || isDocumentationV6
+        }
+        return true
+    }
+
+    private fun isUnsafeIpv4(b0: Int, b1: Int, b2: Int): Boolean = when {
+        b0 == 0 || b0 == 10 || b0 == 127 -> true
+        b0 == 100 && b1 in 64..127 -> true // Tailscale / CGNAT
+        b0 == 169 && b1 == 254 -> true
+        b0 == 172 && b1 in 16..31 -> true
+        b0 == 192 && b1 == 0 && (b2 == 0 || b2 == 2) -> true
+        b0 == 192 && b1 == 168 -> true
+        b0 == 198 && (b1 == 18 || b1 == 19) -> true
+        b0 == 198 && b1 == 51 && b2 == 100 -> true
+        b0 == 203 && b1 == 0 && b2 == 113 -> true
+        b0 >= 224 -> true
+        else -> false
     }
 }
 
@@ -326,7 +420,8 @@ object OfflineHtmlSnapshot {
         return LinkMetadata(
             OriginContentRules.limitField(originTitle, 500),
             (post?.source ?: values["og:site_name"] ?: values["application-name"] ?: sourceUri.host).take(500),
-            (post?.author ?: values["author"] ?: values["article:author"])?.take(500),
+            (post?.author ?: values["author"] ?: values["article:author"]
+                ?: (if (isYouTubeVideoUri(sourceUri)) extractYouTubeVideoAuthor(source) else null))?.take(500),
             description,
             promotionalDescription?.take(4000),
             originDescriptionFound = post != null || description != null,
@@ -429,6 +524,10 @@ object OfflineHtmlSnapshot {
 
     private fun extractYouTubeVideoDescription(source: String): String? =
         YOUTUBE_SHORT_DESCRIPTION.find(source)?.groupValues?.get(1)
+            ?.let(::unescapeJsonString)?.let(::plainText)?.ifBlank { null }
+
+    private fun extractYouTubeVideoAuthor(source: String): String? =
+        YOUTUBE_CHANNEL_NAME.find(source)?.groupValues?.get(1)
             ?.let(::unescapeJsonString)?.let(::plainText)?.ifBlank { null }
 
     private fun isYouTubeVideoUri(uri: URI): Boolean {
@@ -571,6 +670,10 @@ object OfflineHtmlSnapshot {
     )
     private val YOUTUBE_SHORT_DESCRIPTION = Regex(
         "\\\"shortDescription\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"",
+        setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
+    )
+    private val YOUTUBE_CHANNEL_NAME = Regex(
+        "\\\"ownerChannelName\\\"\\s*:\\s*\\\"((?:\\\\.|[^\\\"\\\\])*)\\\"",
         setOf(RegexOption.IGNORE_CASE, RegexOption.DOT_MATCHES_ALL),
     )
     private val JSON_ESCAPE = Regex("\\\\(u[0-9a-fA-F]{4}|[\\\"\\\\/bfnrt])")

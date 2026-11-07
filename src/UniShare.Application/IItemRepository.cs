@@ -49,5 +49,35 @@ public interface IItemRepository
         IReadOnlyCollection<string> names,
         DateTimeOffset now,
         CancellationToken cancellationToken = default);
+
+    async Task<IReadOnlyDictionary<Guid, IReadOnlyList<AssetManifest>>> GetAssetsBatchAsync(
+        IReadOnlyCollection<Guid> itemIds,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new Dictionary<Guid, IReadOnlyList<AssetManifest>>();
+        foreach (var id in itemIds.Distinct())
+        {
+            result[id] = await GetAssetsAsync(id, cancellationToken);
+        }
+        return result;
+    }
+
+    async Task<IReadOnlyDictionary<Guid, ItemOrganization>> GetOrganizationsBatchAsync(
+        IReadOnlyCollection<Guid> itemIds,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new Dictionary<Guid, ItemOrganization>();
+        foreach (var id in itemIds.Distinct())
+        {
+            result[id] = await GetOrganizationAsync(id, cancellationToken);
+        }
+        return result;
+    }
+
+    Task<int> PurgeDeletedAsync(
+        IReadOnlyCollection<Guid>? ids,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default) =>
+        Task.FromResult(0);
 }
 

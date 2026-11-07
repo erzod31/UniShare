@@ -1,4 +1,4 @@
-#requires -Version 7.0
+#requires -Version 5.1
 param(
     [string]$Version = "0.6.25",
     [ValidateSet('development', 'edge', 'chrome')]
@@ -56,8 +56,8 @@ foreach ($file in @("manifest.json", "background.js", "i18n.js", "updates.js", "
 }
 Copy-Item -Path (Join-Path $sourceRoot "icons\*.png") -Destination (Join-Path $packageRoot "icons")
 Copy-Item -LiteralPath (Join-Path $sourceRoot "_locales") -Destination $packageRoot -Recurse
-[ordered]@{ schemaVersion = 1; productId = 'unishare'; store = $Channel; extensionId = $(if ($ExtensionId) { $ExtensionId } else { $null }) } |
-    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $packageRoot 'distribution.json') -Encoding utf8NoBOM
+$distributionJson = [ordered]@{ schemaVersion = 1; productId = 'unishare'; store = $Channel; extensionId = $(if ($ExtensionId) { $ExtensionId } else { $null }) } | ConvertTo-Json
+[IO.File]::WriteAllText((Join-Path $packageRoot 'distribution.json'), $distributionJson, [Text.UTF8Encoding]::new($false))
 & (Join-Path $scriptDirectory 'test-extension.ps1') -Source $packageRoot
 if (-not $?) { throw 'La validación del paquete falló.' }
 

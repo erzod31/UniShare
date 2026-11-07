@@ -30,6 +30,10 @@ data class AndroidSyncConflict(
     val localTitle: String,
     val remoteTitle: String,
     val createdAt: String,
+    val localDescription: String? = null,
+    val remoteDescription: String? = null,
+    val localFavorite: Boolean = false,
+    val remoteFavorite: Boolean = false,
 )
 
 class PortableBackupImporter(private val context: Context) {
@@ -102,10 +106,24 @@ class PortableBackupImporter(private val context: Context) {
                                 unchanged++
                             }
                             SyncMergeAction.CONFLICT -> {
-                                upsertConflict(
-                                    database, sourceDeviceId, local!!, localHash!!, remote, remoteHash, now,
-                                )
-                                conflicts++
+                                val baseline = readBaseline(database, sourceDeviceId, itemId)
+                                val unresolved = hasConflict(database, sourceDeviceId, itemId)
+                                val merged = if (!unresolved && baseline != null) {
+                                    tryMergeNonColliding(local!!, remote)
+                                } else {
+                                    null
+                                }
+                                if (merged != null) {
+                                    updateItem(database, merged)
+                                    val mergedHash = hashJson(merged)
+                                    upsertBaseline(database, sourceDeviceId, itemId, mergedHash, remoteHash, now)
+                                    updated++
+                                } else {
+                                    upsertConflict(
+                                        database, sourceDeviceId, local!!, localHash!!, remote, remoteHash, now,
+                                    )
+                                    conflicts++
+                                }
                             }
                         }
                     }
@@ -143,15 +161,73 @@ class PortableBackupImporter(private val context: Context) {
             """.trimIndent(), null,
         ).use { cursor ->
             while (cursor.moveToNext()) {
+                val localObj = JSONObject(cursor.getString(1))
+                val remoteObj = JSONObject(cursor.getString(2))
                 result += AndroidSyncConflict(
                     cursor.getString(0),
-                    JSONObject(cursor.getString(1)).getString("title"),
-                    JSONObject(cursor.getString(2)).getString("title"),
+                    localObj.getString("title"),
+                    remoteObj.getString("title"),
                     cursor.getString(3),
+                    localObj.optionalString("description"),
+                    remoteObj.optionalString("description"),
+                    localObj.optBoolean("favorite", false),
+                    remoteObj.optBoolean("favorite", false),
                 )
             }
         }
         return result
+    }
+
+    private fun tryMergeNonColliding(local: JSONObject, remote: JSONObject): JSONObject? {
+        if (local.getString("title") != remote.getString("title")) return null
+        if (local.optionalString("original_url") != remote.optionalString("original_url")) return null
+        if (local.optionalString("canonical_url") != remote.optionalString("canonical_url")) return null
+        if (local.optionalString("deleted_at") != remote.optionalString("deleted_at")) return null
+        val localKind = local.getInt("kind")
+        val remoteKind = remote.getInt("kind")
+        if (localKind != remoteKind && setOf(localKind, remoteKind) != setOf(1, 3)) return null
+
+        val localSource = local.optionalString("source")
+        val remoteSource = remote.optionalString("source")
+        if (localSource != null && remoteSource != null && localSource != remoteSource) return null
+
+        val localAuthor = local.optionalString("author")
+        val remoteAuthor = remote.optionalString("author")
+        if (localAuthor != null && remoteAuthor != null && localAuthor != remoteAuthor) return null
+
+        val localDesc = local.optionalString("description")
+        val remoteDesc = remote.optionalString("description")
+        if (localDesc != null && remoteDesc != null && localDesc != remoteDesc) return null
+
+        val localAddedMeta = (localSource != null && remoteSource == null) ||
+            (localAuthor != null && remoteAuthor == null) ||
+            (localDesc != null && remoteDesc == null) ||
+            (localKind == 3 && remoteKind == 1)
+        val remoteAddedMeta = (remoteSource != null && localSource == null) ||
+            (remoteAuthor != null && localAuthor == null) ||
+            (remoteDesc != null && localDesc == null) ||
+            (remoteKind == 3 && localKind == 1)
+        if (!localAddedMeta && !remoteAddedMeta) return null
+
+        val localFav = local.optBoolean("favorite", false)
+        val remoteFav = remote.optBoolean("favorite", false)
+        val mergedFav = when {
+            localFav == remoteFav -> localFav
+            remoteAddedMeta && !localAddedMeta -> localFav
+            localAddedMeta && !remoteAddedMeta -> remoteFav
+            else -> localFav || remoteFav
+        }
+        val localUpdated = local.getString("updated_at")
+        val remoteUpdated = remote.getString("updated_at")
+        val mergedUpdated = if (Instant.parse(localUpdated) >= Instant.parse(remoteUpdated)) localUpdated else remoteUpdated
+
+        return JSONObject(local.toString())
+            .put("kind", maxOf(localKind, remoteKind))
+            .putNullable("source", localSource ?: remoteSource)
+            .putNullable("author", localAuthor ?: remoteAuthor)
+            .putNullable("description", localDesc ?: remoteDesc)
+            .put("favorite", mergedFav)
+            .put("updated_at", mergedUpdated)
     }
 
     fun resolveConflict(database: SQLiteDatabase, conflictId: String, useRemote: Boolean) {

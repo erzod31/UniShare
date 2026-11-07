@@ -341,6 +341,29 @@ public sealed class SqliteLibraryRepositoryTests
         Assert.Equal(items[2].Id, Assert.Single(deleted).Id);
     }
 
+    [Fact]
+    public async Task BatchOrganizationQueriesAndPurgeDeletedRemoveArchivedItemsPermanently()
+    {
+        using var temporary = new TemporaryDirectory();
+        var repository = new SqliteLibraryRepository(System.IO.Path.Combine(temporary.Path, "library.db"));
+        await repository.InitializeAsync(TestContext.Current.CancellationToken);
+        var active = LibraryItem.Create(ItemKind.Link, "Activo", "https://example.com/active", Now);
+        var deleted = LibraryItem.Create(ItemKind.Link, "En papelera", "https://example.com/trash", Now.AddMinutes(1));
+        await repository.CreateAsync(active, null, TestContext.Current.CancellationToken);
+        await repository.CreateAsync(deleted, null, TestContext.Current.CancellationToken);
+        await repository.ReplaceTagsAsync(active.Id, ["Etiqueta1"], Now.AddMinutes(2), TestContext.Current.CancellationToken);
+        await repository.SetDeletedAsync(deleted.Id, true, Now.AddMinutes(3), TestContext.Current.CancellationToken);
+
+        var batchOrgs = await repository.GetOrganizationsBatchAsync([active.Id, deleted.Id], TestContext.Current.CancellationToken);
+        Assert.Equal("Etiqueta1", Assert.Single(batchOrgs[active.Id].Tags).Name);
+        Assert.Empty(batchOrgs[deleted.Id].Tags);
+
+        var purged = await repository.PurgeDeletedAsync(null, Now.AddMinutes(4), TestContext.Current.CancellationToken);
+        Assert.Equal(1, purged);
+        Assert.Null(await repository.GetAsync(deleted.Id, TestContext.Current.CancellationToken));
+        Assert.NotNull(await repository.GetAsync(active.Id, TestContext.Current.CancellationToken));
+    }
+
     private static AssetManifest CreateAsset(Guid itemId, string seed) => new(
         Guid.NewGuid(),
         itemId,

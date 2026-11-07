@@ -139,7 +139,8 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <TextBox x:Name="SearchBox" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                 KeyDown="SearchBox_KeyDown" ToolTip="Título, URL, autor, notas o etiquetas"
+                                 KeyDown="SearchBox_KeyDown" TextChanged="SearchBox_TextChanged"
+                                 ToolTip="Título, URL, autor, notas o etiquetas"
                                  AutomationProperties.Name="Buscar en la biblioteca" />
                         <Button Grid.Column="1" Content="Buscar" Margin="8,0,0,0" Click="Search_Click" />
                     </Grid>
@@ -223,9 +224,14 @@
                                 <Button Grid.Column="2" Content="{Binding DeleteActionLabel}" Margin="8,0,0,0" Padding="10,5"
                                         Style="{StaticResource DangerButton}" Visibility="{Binding DeleteVisibility}"
                                         Click="Delete_Click" />
-                                <Button Grid.Column="2" Content="{Binding RestoreActionLabel}" Margin="8,0,0,0" Padding="10,5"
-                                        Style="{StaticResource GhostButton}" Visibility="{Binding RestoreVisibility}"
-                                        Click="Restore_Click" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                                    <Button Content="{Binding RestoreActionLabel}" Margin="8,0,0,0" Padding="10,5"
+                                            Style="{StaticResource GhostButton}" Visibility="{Binding RestoreVisibility}"
+                                            Click="Restore_Click" />
+                                    <Button Content="{Binding PurgeActionLabel}" Margin="8,0,0,0" Padding="10,5"
+                                            Style="{StaticResource DangerButton}" Visibility="{Binding PurgeVisibility}"
+                                            Click="PurgeTrash_Click" />
+                                </StackPanel>
                             </Grid>
                         </Border>
                         <Grid Grid.Row="1">
@@ -316,8 +322,12 @@
                             <Button Content="{Binding DeleteActionLabel}" Margin="0,8,0,0" Style="{StaticResource DangerButton}"
                                     Visibility="{Binding DeleteVisibility}" Click="Delete_Click"
                                     AutomationProperties.HelpText="Mueve el elemento a la Papelera; se puede restaurar." />
+                            <Button Content="{Binding BatchOrganizeLabel}" Margin="0,8,0,0" Style="{StaticResource GhostButton}"
+                                    Visibility="{Binding BatchOrganizeVisibility}" Click="BatchOrganize_Click" />
                             <Button Content="{Binding RestoreActionLabel}" Margin="0,8,0,0" Style="{StaticResource GhostButton}"
                                     Visibility="{Binding RestoreVisibility}" Click="Restore_Click" />
+                            <Button Content="{Binding PurgeActionLabel}" Margin="0,8,0,0" Style="{StaticResource DangerButton}"
+                                    Visibility="{Binding PurgeVisibility}" Click="PurgeTrash_Click" />
                         </StackPanel>
                         </ScrollViewer>
                         <StackPanel Margin="24" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="{Binding NoSelectionVisibility}">

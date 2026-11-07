@@ -150,8 +150,9 @@ internal sealed class LocalDescriptionTranslator : IDescriptionTranslator, IDisp
                 ".wasm" => "application/wasm",
                 _ => "application/octet-stream",
             };
+            var bytes = await File.ReadAllBytesAsync(file, _shutdown.Token);
             e.Response = _view.CoreWebView2.Environment.CreateWebResourceResponse(
-                File.OpenRead(file), 200, "OK", $"Content-Type: {mime}\r\nCache-Control: no-store");
+                new MemoryStream(bytes, writable: false), 200, "OK", $"Content-Type: {mime}\r\nCache-Control: no-store");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or HttpRequestException or OperationCanceledException or InvalidOperationException)
         {

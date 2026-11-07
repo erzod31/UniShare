@@ -192,9 +192,13 @@ class LocalLibraryStore(private val context: Context) : SQLiteOpenHelper(context
         collection: String? = null,
         offlineOnly: Boolean = false,
         limit: Int = 201,
+        offset: Int = 0,
     ): List<SavedItem> {
         require(limit > 0) { "El límite de elementos no es válido" }
-        val pattern = "%${query.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")}%"
+        require(offset >= 0) { "El desplazamiento no es válido" }
+        val foldedQuery = foldAccentText(query.trim())
+            .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        val pattern = "%$foldedQuery%"
         val clauses = mutableListOf<String>()
         val arguments = mutableListOf<String>()
         clauses += if (archivedOnly) "i.deleted_at IS NOT NULL" else "i.deleted_at IS NULL"
@@ -209,13 +213,13 @@ class LocalLibraryStore(private val context: Context) : SQLiteOpenHelper(context
         }
         if (query.isNotBlank()) {
             clauses += """
-                (i.title LIKE ? ESCAPE '\' OR i.original_url LIKE ? ESCAPE '\'
-                 OR i.source LIKE ? ESCAPE '\' OR i.author LIKE ? ESCAPE '\'
-                 OR i.description LIKE ? ESCAPE '\'
+                (${foldSqlColumn("i.title")} LIKE ? ESCAPE '\\' OR ${foldSqlColumn("i.original_url")} LIKE ? ESCAPE '\\'
+                 OR ${foldSqlColumn("i.source")} LIKE ? ESCAPE '\\' OR ${foldSqlColumn("i.author")} LIKE ? ESCAPE '\\'
+                 OR ${foldSqlColumn("i.description")} LIKE ? ESCAPE '\\'
                  OR EXISTS (SELECT 1 FROM item_tags it JOIN tags t ON t.id=it.tag_id
-                            WHERE it.item_id=i.id AND it.removed_at IS NULL AND t.name LIKE ? ESCAPE '\')
+                            WHERE it.item_id=i.id AND it.removed_at IS NULL AND ${foldSqlColumn("t.name")} LIKE ? ESCAPE '\\')
                  OR EXISTS (SELECT 1 FROM item_collections ic JOIN collections c ON c.id=ic.collection_id
-                            WHERE ic.item_id=i.id AND ic.removed_at IS NULL AND c.name LIKE ? ESCAPE '\'))
+                            WHERE ic.item_id=i.id AND ic.removed_at IS NULL AND ${foldSqlColumn("c.name")} LIKE ? ESCAPE '\\'))
             """.trimIndent()
             repeat(7) { arguments += pattern }
         }
@@ -227,10 +231,10 @@ class LocalLibraryStore(private val context: Context) : SQLiteOpenHelper(context
                    i.source, i.author, i.description, i.favorite, i.deleted_at
             FROM items AS i
             ${if (clauses.isEmpty()) "" else "WHERE ${clauses.joinToString(" AND ")}"}
-            ORDER BY i.created_at DESC
-            LIMIT ?
+            ORDER BY i.updated_at DESC, i.id
+            LIMIT ? OFFSET ?
             """.trimIndent(),
-            (arguments + limit.toString()).toTypedArray(),
+            (arguments + limit.toString() + offset.toString()).toTypedArray(),
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 val itemId = cursor.getString(0)
@@ -348,6 +352,74 @@ class LocalLibraryStore(private val context: Context) : SQLiteOpenHelper(context
         }
     }
 
+    fun purgeDeleted(itemIds: Collection<String>? = null): Int {
+        val targetIds = itemIds?.distinct()?.filter { it.isNotBlank() }.orEmpty()
+        val database = writableDatabase
+        var deletedCount = 0
+        database.transaction {
+            val idsToPurge = mutableListOf<String>()
+            if (targetIds.isEmpty()) {
+                database.rawQuery("SELECT id FROM items WHERE deleted_at IS NOT NULL", null).use { cursor ->
+                    while (cursor.moveToNext()) idsToPurge += cursor.getString(0)
+                }
+            } else {
+                targetIds.chunked(400).forEach { chunk ->
+                    val placeholders = chunk.joinToString(",") { "?" }
+                    database.rawQuery(
+                        "SELECT id FROM items WHERE deleted_at IS NOT NULL AND id IN ($placeholders)",
+                        chunk.toTypedArray(),
+                    ).use { cursor ->
+                        while (cursor.moveToNext()) idsToPurge += cursor.getString(0)
+                    }
+                }
+            }
+            idsToPurge.forEach { id ->
+                deletedCount += database.delete("items", "id=? AND deleted_at IS NOT NULL", arrayOf(id))
+                database.delete("sync_item_state", "item_id=?", arrayOf(id))
+                database.delete("sync_conflicts", "item_id=?", arrayOf(id))
+                database.delete("sync_operations", "item_id=?", arrayOf(id))
+            }
+        }
+        return deletedCount
+    }
+
+    fun applyBatchOrganization(
+        itemIds: Collection<String>,
+        addTags: String = "",
+        addCollections: String = "",
+        favorite: Boolean? = null,
+    ) {
+        val uniqueIds = itemIds.distinct()
+        require(uniqueIds.isNotEmpty()) { "Selecciona al menos un elemento" }
+        val tagNames = OrganizationNames.parse(addTags)
+        val collectionNames = OrganizationNames.parse(addCollections)
+        val now = Instant.now().toString()
+        val database = writableDatabase
+        database.transaction {
+            val existingTags = labelsForItems(uniqueIds, "tags", "item_tags", "tag_id")
+            val existingCollections = labelsForItems(uniqueIds, "collections", "item_collections", "collection_id")
+            uniqueIds.forEach { itemId ->
+                val values = ContentValues().apply {
+                    if (favorite != null) put("favorite", if (favorite) 1 else 0)
+                    put("updated_at", now)
+                }
+                database.update("items", values, "id=?", arrayOf(itemId))
+                if (tagNames.isNotEmpty()) {
+                    val mergedTags = (existingTags[itemId].orEmpty().map(OrganizationNames::normalize) + tagNames)
+                        .distinctBy(OrganizationName::normalized)
+                    replaceLabels(database, itemId, "tags", "item_tags", "tag_id", mergedTags, now)
+                }
+                if (collectionNames.isNotEmpty()) {
+                    val mergedCollections = (existingCollections[itemId].orEmpty().map(OrganizationNames::normalize) + collectionNames)
+                        .distinctBy(OrganizationName::normalized)
+                    replaceLabels(
+                        database, itemId, "collections", "item_collections", "collection_id", mergedCollections, now,
+                    )
+                }
+            }
+        }
+    }
+
     fun localAsset(itemId: String): LocalAsset? = readableDatabase.rawQuery(
         "SELECT relative_path,mime_type FROM assets WHERE item_id=? ORDER BY id LIMIT 1",
         arrayOf(itemId),
@@ -430,7 +502,11 @@ class LocalLibraryStore(private val context: Context) : SQLiteOpenHelper(context
         val values = ContentValues()
         val resolvedTitle = originalUrl?.let { metadata.resolveTitle(currentTitle, it) } ?: currentTitle
         if (resolvedTitle != currentTitle) values.put("title", resolvedTitle)
-        if (currentSource.isNullOrBlank() && !metadata.source.isNullOrBlank()) values.put("source", metadata.source)
+        if (LinkMetadata.isProvisionalSource(currentSource, originalUrl) &&
+            !metadata.source.isNullOrBlank() && metadata.source != currentSource
+        ) {
+            values.put("source", metadata.source)
+        }
         if (currentAuthor.isNullOrBlank() && !metadata.author.isNullOrBlank()) values.put("author", metadata.author)
         val resolvedDescription = metadata.resolveDescription(currentDescription)
         if (currentDescription != resolvedDescription) {
@@ -751,5 +827,35 @@ class LocalLibraryStore(private val context: Context) : SQLiteOpenHelper(context
     companion object {
         private const val MAXIMUM_FILE_BYTES = 1024L * 1024 * 1024
         private const val ORPHAN_GRACE_PERIOD_MILLIS = 7L * 24 * 60 * 60 * 1000
+
+        internal fun foldAccentText(value: String): String {
+            val lower = value.lowercase(java.util.Locale.ROOT)
+            return buildString(lower.length) {
+                for (ch in lower) {
+                    append(
+                        when (ch) {
+                            'á', 'à', 'ä', 'â' -> 'a'
+                            'é', 'è', 'ë', 'ê' -> 'e'
+                            'í', 'ì', 'ï', 'î' -> 'i'
+                            'ó', 'ò', 'ö', 'ô' -> 'o'
+                            'ú', 'ù', 'ü', 'û' -> 'u'
+                            else -> ch
+                        },
+                    )
+                }
+            }
+        }
+
+        private fun foldSqlColumn(column: String): String {
+            var expr = "lower(COALESCE($column, ''))"
+            val replacements = listOf(
+                "á" to "a", "é" to "e", "í" to "i", "ó" to "o", "ú" to "u", "ü" to "u",
+                "Á" to "a", "É" to "e", "Í" to "i", "Ó" to "o", "Ú" to "u", "Ü" to "u",
+            )
+            for ((from, to) in replacements) {
+                expr = "replace($expr, '$from', '$to')"
+            }
+            return expr
+        }
     }
 }

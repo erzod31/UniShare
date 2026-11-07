@@ -152,5 +152,70 @@ public sealed class LibraryService(IItemRepository repository, IBlobStore blobSt
         await repository.ReplaceTagsAsync(itemId, tags, now, cancellationToken);
         await repository.ReplaceCollectionsAsync(itemId, collections, now, cancellationToken);
     }
+
+    public async Task ApplyBatchOrganizationAsync(
+        IReadOnlyCollection<Guid> itemIds,
+        IReadOnlyCollection<string> addTags,
+        IReadOnlyCollection<string> addCollections,
+        bool? favorite = null,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(itemIds);
+        ArgumentNullException.ThrowIfNull(addTags);
+        ArgumentNullException.ThrowIfNull(addCollections);
+        var uniqueIds = itemIds.Distinct().ToArray();
+        if (uniqueIds.Length == 0)
+        {
+            return;
+        }
+
+        foreach (var tag in addTags)
+        {
+            _ = LibraryTag.Normalize(tag);
+        }
+        foreach (var collection in addCollections)
+        {
+            _ = LibraryCollectionDefinition.Normalize(collection);
+        }
+
+        var existingOrgs = await repository.GetOrganizationsBatchAsync(uniqueIds, cancellationToken);
+        var now = timeProvider.GetUtcNow();
+        foreach (var id in uniqueIds)
+        {
+            var current = await repository.GetAsync(id, cancellationToken);
+            if (current is null)
+            {
+                continue;
+            }
+
+            if (favorite.HasValue && current.Favorite != favorite.Value)
+            {
+                await repository.UpdateAsync(
+                    current.UpdateMetadata(current.Title, current.Source, current.Author, current.Description, favorite.Value, now),
+                    cancellationToken);
+            }
+
+            if (addTags.Count > 0)
+            {
+                var currentTags = existingOrgs.TryGetValue(id, out var org)
+                    ? org.Tags.Select(t => t.Name).Concat(addTags).ToArray()
+                    : addTags.ToArray();
+                await repository.ReplaceTagsAsync(id, currentTags, now, cancellationToken);
+            }
+
+            if (addCollections.Count > 0)
+            {
+                var currentCollections = existingOrgs.TryGetValue(id, out var org)
+                    ? org.Collections.Select(c => c.Name).Concat(addCollections).ToArray()
+                    : addCollections.ToArray();
+                await repository.ReplaceCollectionsAsync(id, currentCollections, now, cancellationToken);
+            }
+        }
+    }
+
+    public Task<int> PurgeDeletedAsync(
+        IReadOnlyCollection<Guid>? ids = null,
+        CancellationToken cancellationToken = default) =>
+        repository.PurgeDeletedAsync(ids, timeProvider.GetUtcNow(), cancellationToken);
 }
 

@@ -22,6 +22,7 @@
                     </DockPanel>
                     <TextBlock Text="Clave privada" FontWeight="SemiBold" />
                     <DockPanel Margin="0,5,0,0">
+                        <Button DockPanel.Dock="Right" Content="Generar nueva clave" Click="RotatePairingKey_Click" Margin="8,0,0,0" />
                         <Button DockPanel.Dock="Right" Content="Copiar clave" Click="CopyPairingKey_Click" Margin="8,0,0,0" />
                         <TextBox x:Name="PairingKeyBox" IsReadOnly="True" FontFamily="Consolas" />
                     </DockPanel>

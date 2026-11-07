@@ -161,7 +161,33 @@ public sealed class MainWindowViewModel(LibraryService library) : INotifyPropert
         ? Visibility.Visible
         : Visibility.Collapsed;
 
+    public Visibility PurgeVisibility => IncludeDeleted && Items.Count > 0
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public string PurgeActionLabel => UiLanguage.T(EffectiveDeletedSelectionCount > 0
+        ? $"Eliminar definitivamente ({EffectiveDeletedSelectionCount})"
+        : "Vaciar papelera");
+
+    public Visibility BatchOrganizeVisibility => EffectiveActiveSelectionCount > 1
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public string BatchOrganizeLabel => UiLanguage.T($"Organizar ({EffectiveActiveSelectionCount})");
+
     public Visibility LoadMoreVisibility => _hasMore ? Visibility.Visible : Visibility.Collapsed;
+
+    public void NotifyLanguageChanged()
+    {
+        OnPropertyChanged(nameof(ViewTitle));
+        OnPropertyChanged(nameof(EmptyTitle));
+        OnPropertyChanged(nameof(EmptyDescription));
+        OnPropertyChanged(nameof(SelectionSummary));
+        OnPropertyChanged(nameof(DeleteActionLabel));
+        OnPropertyChanged(nameof(RestoreActionLabel));
+        OnPropertyChanged(nameof(PurgeActionLabel));
+        OnPropertyChanged(nameof(BatchOrganizeLabel));
+    }
 
     public void SetSelection(IReadOnlyCollection<ItemRow> items)
     {
@@ -175,6 +201,10 @@ public sealed class MainWindowViewModel(LibraryService library) : INotifyPropert
         OnPropertyChanged(nameof(RestoreVisibility));
         OnPropertyChanged(nameof(DeleteActionLabel));
         OnPropertyChanged(nameof(RestoreActionLabel));
+        OnPropertyChanged(nameof(PurgeVisibility));
+        OnPropertyChanged(nameof(PurgeActionLabel));
+        OnPropertyChanged(nameof(BatchOrganizeVisibility));
+        OnPropertyChanged(nameof(BatchOrganizeLabel));
     }
 
     public async Task RefreshAsync()
@@ -276,6 +306,10 @@ public sealed class MainWindowViewModel(LibraryService library) : INotifyPropert
         OnPropertyChanged(nameof(EmptyDescription));
         OnPropertyChanged(nameof(EmptyActionVisibility));
         OnPropertyChanged(nameof(LoadMoreVisibility));
+        OnPropertyChanged(nameof(PurgeVisibility));
+        OnPropertyChanged(nameof(PurgeActionLabel));
+        OnPropertyChanged(nameof(BatchOrganizeVisibility));
+        OnPropertyChanged(nameof(BatchOrganizeLabel));
     }
 
     private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

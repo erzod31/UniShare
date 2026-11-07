@@ -302,7 +302,20 @@ public static partial class UiLanguage
                 "UniShare does not overwrite simultaneous edits. Select a conflict and choose the version you want to keep.",
             ["Ctrl+L guarda un enlace, Ctrl+F busca, Ctrl+N añade un elemento, Ctrl+E edita y Supr elimina la selección."] =
                 "Ctrl+L saves a link, Ctrl+F searches, Ctrl+N adds an item, Ctrl+E edits, and Delete removes the selection.",
+            ["Generar nueva clave"] = "Generate new key",
+            ["Nueva clave generada. Vuelve a emparejar tu teléfono y la extensión."] =
+                "New key generated. Re-pair your phone and browser extension.",
+            ["Vaciar papelera"] = "Empty trash",
+            ["Eliminar definitivamente"] = "Delete permanently",
+            ["La papelera se ha vaciado definitivamente."] = "Trash has been permanently emptied.",
+            ["Notas (mía)"] = "Notes (mine)",
+            ["Notas (recibida)"] = "Notes (received)",
+            ["Organizar"] = "Organize",
         };
+
+    private static readonly Dictionary<string, string> SpanishFromEnglish =
+        English.GroupBy(pair => pair.Value, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First().Key, StringComparer.Ordinal);
 
     internal static UiLanguageChoice Choice { get; private set; } = UiLanguageChoice.Spanish;
     internal static string Label => Choice == UiLanguageChoice.English ? "English" : "Español";
@@ -349,6 +362,10 @@ public static partial class UiLanguage
             "$1 items selected. Delete and restore will apply to the group.");
         result = Regex.Replace(result, @"^Eliminar \((\d+)\)$", "Delete ($1)");
         result = Regex.Replace(result, @"^Restaurar \((\d+)\)$", "Restore ($1)");
+        result = Regex.Replace(result, @"^Eliminar definitivamente \((\d+)\)$", "Delete permanently ($1)");
+        result = Regex.Replace(result, @"^Organizar \((\d+)\)$", "Organize ($1)");
+        result = Regex.Replace(result, @"^(\d+) elementos eliminados definitivamente\.$", "$1 items permanently deleted.");
+        result = Regex.Replace(result, @"^1 elemento eliminado definitivamente\.$", "1 item permanently deleted.");
         result = Regex.Replace(result, @"^Tema: (Claro|Oscuro|Sistema)$", match =>
             $"Theme: {match.Groups[1].Value switch { "Claro" => "Light", "Oscuro" => "Dark", _ => "System" }}");
         result = Regex.Replace(result, @"^Tamaño del texto: (Normal|Grande|Muy grande)$", match =>
@@ -377,45 +394,89 @@ public static partial class UiLanguage
         return result;
     }
 
-    private static void OnElementLoaded(object sender, RoutedEventArgs _)
+    public static string TranslateBidirectional(string? value, UiLanguageChoice choice)
     {
-        if (Choice != UiLanguageChoice.English || sender is not FrameworkElement element)
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+        if (choice == UiLanguageChoice.English)
+        {
+            return Translate(value, UiLanguageChoice.English);
+        }
+        return SpanishFromEnglish.TryGetValue(value, out var spanish) ? spanish : value;
+    }
+
+    internal static void ApplyToWindow(DependencyObject root)
+    {
+        ApplyToDependencyObject(root);
+        foreach (var child in LogicalTreeHelper.GetChildren(root))
+        {
+            if (child is DependencyObject depChild)
+            {
+                ApplyToWindow(depChild);
+            }
+        }
+    }
+
+    private static void ApplyToDependencyObject(DependencyObject obj)
+    {
+        if (obj is DataGrid grid)
+        {
+            foreach (var col in grid.Columns)
+            {
+                if (col.Header is string colHeader)
+                {
+                    col.Header = TranslateBidirectional(colHeader, Choice);
+                }
+            }
+        }
+        if (obj is not FrameworkElement element)
         {
             return;
         }
 
         if (element is Window window && !BindingOperations.IsDataBound(window, Window.TitleProperty))
         {
-            window.Title = T(window.Title);
+            window.Title = TranslateBidirectional(window.Title, Choice);
         }
         if (element is TextBlock text && !BindingOperations.IsDataBound(text, TextBlock.TextProperty))
         {
-            text.Text = T(text.Text);
+            text.Text = TranslateBidirectional(text.Text, Choice);
         }
         if (element is HeaderedItemsControl headered && headered.Header is string header &&
             !BindingOperations.IsDataBound(headered, HeaderedItemsControl.HeaderProperty))
         {
-            headered.Header = T(header);
+            headered.Header = TranslateBidirectional(header, Choice);
         }
         else if (element is ContentControl content && content.Content is string value &&
                  !BindingOperations.IsDataBound(content, ContentControl.ContentProperty))
         {
-            content.Content = T(value);
+            content.Content = TranslateBidirectional(value, Choice);
         }
         if (element.ToolTip is string tooltip)
         {
-            element.ToolTip = T(tooltip);
+            element.ToolTip = TranslateBidirectional(tooltip, Choice);
         }
         var name = AutomationProperties.GetName(element);
         if (!string.IsNullOrEmpty(name) && !BindingOperations.IsDataBound(element, AutomationProperties.NameProperty))
         {
-            AutomationProperties.SetName(element, T(name));
+            AutomationProperties.SetName(element, TranslateBidirectional(name, Choice));
         }
         var help = AutomationProperties.GetHelpText(element);
         if (!string.IsNullOrEmpty(help) && !BindingOperations.IsDataBound(element, AutomationProperties.HelpTextProperty))
         {
-            AutomationProperties.SetHelpText(element, T(help));
+            AutomationProperties.SetHelpText(element, TranslateBidirectional(help, Choice));
         }
+    }
+
+    private static void OnElementLoaded(object sender, RoutedEventArgs _)
+    {
+        if (Choice != UiLanguageChoice.English || sender is not FrameworkElement element)
+        {
+            return;
+        }
+        ApplyToDependencyObject(element);
     }
 
     private static string ConfigurationPath() => Path.Combine(

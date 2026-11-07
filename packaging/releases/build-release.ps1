@@ -1,4 +1,4 @@
-#requires -Version 7.0
+#requires -Version 5.1
 param(
     [string]$Version = '0.6.25',
     [string]$EdgeExtensionId = '',
@@ -33,7 +33,7 @@ try {
     if (-not $?) { throw 'Windows packaging failed; inspect windows-package.log.' }
     Push-Location (Join-Path $root 'platforms/android')
     try {
-        & .\gradlew.bat --no-daemon test lintRelease assembleRelease assembleDebugAndroidTest *> (Join-Path $logs 'android-build.log')
+        $prevErr = $ErrorActionPreference; $ErrorActionPreference = 'Continue'; try { & .\gradlew.bat --no-daemon test lintRelease assembleRelease assembleDebugAndroidTest *> (Join-Path $logs 'android-build.log') } finally { $ErrorActionPreference = $prevErr }
         if ($LASTEXITCODE -ne 0) { throw 'Android validation failed; inspect android-build.log.' }
     } finally { Pop-Location }
     foreach ($channel in @('development', 'edge', 'chrome')) {
@@ -75,7 +75,7 @@ try {
     $sums = Join-Path $artifacts "SHA256SUMS-$Version.txt"
     [IO.File]::WriteAllLines($sums, @($files | ForEach-Object { $_.sha256 + '  ' + [IO.Path]::GetFileName($_.path) }), [Text.UTF8Encoding]::new($false))
     $notes = Join-Path $artifacts "RELEASE-NOTES-$Version.md"
-    @"
+    $notesContent = @"
 # UniShare $Version — candidate, not published
 
 Windows, Android and browser extension candidates use version $Version. The extension now checks
@@ -90,10 +90,12 @@ Windows remains historically unsigned (unless production signing was explicitly 
 Android retains its existing signing certificate; changing keys breaks updates. Development ZIPs
 are not store installations. Store publication/account approval and physical/native end-to-end
 installation tests are pending; candidate tests use isolated profiles and fake installers.
-"@ | Set-Content -LiteralPath $notes -Encoding utf8NoBOM
+"@
+    [IO.File]::WriteAllText($notes, $notesContent, [Text.UTF8Encoding]::new($false))
+    $tz = try { [TimeZoneInfo]::FindSystemTimeZoneById('Europe/Brussels') } catch { [TimeZoneInfo]::FindSystemTimeZoneById('Romance Standard Time') }
     $plan = [ordered]@{
         schemaVersion = 1; productId = 'unishare'; version = $Version
-        generatedAt = [TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTimeOffset]::UtcNow, 'Europe/Brussels').ToString('o')
+        generatedAt = [TimeZoneInfo]::ConvertTime([DateTimeOffset]::UtcNow, $tz).ToString('o')
         sourceRevision = $revision; publicRevision = $publicCommit; repository = 'erzod31/UniShare'
         extensionIdentities = @{ edge = $(if ($EdgeExtensionId) { $EdgeExtensionId } else { $null }); chrome = $(if ($ChromeExtensionId) { $ChromeExtensionId } else { $null }) }
         prepared = $true; performed = $false; nativeInstallersExecuted = 0; artifacts = $files
@@ -111,7 +113,7 @@ installation tests are pending; candidate tests use isolated profiles and fake i
         rollback = 'Before activation delete the draft, preserving existing releases; after activation withdraw the defective release and publish a higher fixed version. Never downgrade data or uninstall.'
         dependencies = @('Explicit remote-publication approval', 'Verified store publisher accounts/contact details and store-assigned IDs', 'Independent Windows/Android native-upgrade QA before claiming it verified')
     }
-    $plan | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $artifacts "release-$Version.json") -Encoding utf8NoBOM
+    [IO.File]::WriteAllText((Join-Path $artifacts "release-$Version.json"), ($plan | ConvertTo-Json -Depth 8), [Text.UTF8Encoding]::new($false))
     Write-Output "Prepared $($files.Count) candidate artifacts. No remote publication or native installer was executed."
 }
 finally { Pop-Location }

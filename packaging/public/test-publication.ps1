@@ -1,4 +1,4 @@
-#requires -Version 7.0
+#requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $testRoot = Join-Path $repositoryRoot ('artifacts/test-results/publication-' + [Guid]::NewGuid().ToString('N'))
@@ -22,7 +22,7 @@ function Must-Fail([scriptblock]$Action, [string]$Name) {
     Assert $failed $Name
 }
 function Check-Hook([string]$Line, [bool]$ShouldPass, [string]$Name) {
-    $output = $Line | & pwsh -NoLogo -NoProfile -File (Join-Path $development 'packaging/public/check-public-push.ps1') 2>&1
+    $psExe = (Get-Process -Id $PID).Path; $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'; try { $output = $Line | & $psExe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $development 'packaging/public/check-public-push.ps1') 2>&1 } finally { $ErrorActionPreference = $prev }
     Assert (($LASTEXITCODE -eq 0) -eq $ShouldPass) $Name
 }
 
@@ -52,9 +52,9 @@ try {
         Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination (Join-Path $development "packaging/public/$file")
     }
     Set-Content -LiteralPath (Join-Path $development '.gitignore') -Value 'artifacts/' -Encoding utf8
-    Set-Content -LiteralPath (Join-Path $development '.gitattributes') -Value @('AGENTS.md export-ignore', 'SOURCE_REVISION export-subst', 'packaging/public/hooks/* text eol=lf') -Encoding utf8
+    [IO.File]::WriteAllLines((Join-Path $development '.gitattributes'), @('AGENTS.md export-ignore', 'SOURCE_REVISION export-subst', 'packaging/public/hooks/* text eol=lf'), [Text.UTF8Encoding]::new($false))
     Set-Content -LiteralPath (Join-Path $development 'AGENTS.md') -Value '__PRIVATE_LOCAL_INSTRUCTIONS__' -Encoding utf8
-    Set-Content -LiteralPath (Join-Path $development 'SOURCE_REVISION') -Value '$Format:%H$' -Encoding utf8
+    [IO.File]::WriteAllLines((Join-Path $development 'SOURCE_REVISION'), @('$Format:%H$'), [Text.UTF8Encoding]::new($false))
     Set-Content -LiteralPath (Join-Path $development 'README.md') -Value 'Current safe source' -Encoding utf8
     Invoke-TestGit $development -Arguments @('add', '--all') | Out-Null
     Invoke-TestGit $development -Arguments @('update-index', '--chmod=+x', 'packaging/public/hooks/pre-push') | Out-Null
@@ -117,7 +117,7 @@ try {
         Check-Hook "refs/tags/v1.2.3 $approved refs/tags/v1.2.3 $seedCommit" $false 'Hook rejects replacement release tag'
         Invoke-TestGit $development -Arguments @('push', '--quiet', 'origin', 'public:main') | Out-Null
         Assert ((Invoke-TestGit $remote -Arguments @('rev-parse', 'main')) -eq $approved) 'Actual Git pre-push hook accepts local fixture publication'
-        $blockedOutput = & git push origin master:unsafe 2>&1
+        $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'; try { $blockedOutput = & git push origin master:unsafe 2>&1 } finally { $ErrorActionPreference = $prev }
         Assert ($LASTEXITCODE -ne 0) 'Actual Git hook blocks private branch publication'
         & git --git-dir=$remote show-ref --verify --quiet refs/heads/unsafe
         Assert ($LASTEXITCODE -eq 1) 'Rejected private branch does not reach remote'

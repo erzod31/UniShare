@@ -188,6 +188,37 @@ public sealed class PortableBackupServiceTests
         Assert.Contains(included.Id.ToString("D"), await itemsReader.ReadToEndAsync(TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task EncryptedBackupRoundTripVerifiesAndRestoresWithPasswordAndRejectsWrongPassword()
+    {
+        using var temporary = new TemporaryDirectory();
+        var sourceProfile = System.IO.Path.Combine(temporary.Path, "enc-source");
+        var repository = new SqliteLibraryRepository(System.IO.Path.Combine(sourceProfile, "library.db"));
+        var library = new LibraryService(repository, new FileBlobStore(sourceProfile), TimeProvider.System);
+        await library.InitializeAsync(TestContext.Current.CancellationToken);
+        var item = await library.CreateAsync(new CreateItemRequest(
+            "Secreto cifrado", "https://example.com/encrypted", null,
+            Tags: ["Seguridad"], Collections: ["Privado"]), TestContext.Current.CancellationToken);
+        var backup = new PortableBackupService(sourceProfile);
+        var encryptedPath = System.IO.Path.Combine(temporary.Path, "library.unishare.enc");
+
+        var exported = await backup.ExportEncryptedAsync(encryptedPath, "ClaveSegura#2026", TestContext.Current.CancellationToken);
+
+        Assert.True(PortableBackupService.IsEncryptedBackup(encryptedPath));
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            backup.InspectAsync(encryptedPath, "ClaveIncorrecta", TestContext.Current.CancellationToken));
+        var inspected = await backup.InspectAsync(encryptedPath, "ClaveSegura#2026", TestContext.Current.CancellationToken);
+        Assert.Equal(exported, inspected);
+
+        var restoredProfile = System.IO.Path.Combine(temporary.Path, "enc-restored");
+        var restored = await backup.RestoreToNewProfileAsync(
+            encryptedPath, restoredProfile, "ClaveSegura#2026", TestContext.Current.CancellationToken);
+        Assert.Equal(1, restored.ItemCount);
+        var restoredRepository = new SqliteLibraryRepository(System.IO.Path.Combine(restoredProfile, "library.db"));
+        await restoredRepository.InitializeAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(item.Id, Assert.Single(await restoredRepository.SearchAsync("cifrado", cancellationToken: TestContext.Current.CancellationToken)).Id);
+    }
+
     private static async Task<Guid> ReadDeviceIdAsync(string databasePath)
     {
         SqliteConnection.ClearAllPools();

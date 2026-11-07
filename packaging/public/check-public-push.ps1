@@ -1,11 +1,11 @@
-#requires -Version 7.0
+#requires -Version 5.1
 $ErrorActionPreference = 'Stop'
 try {
     $privateRoots = @(git config --get-all unishare.privateRoot)
     if ($LASTEXITCODE -ne 0 -or $privateRoots.Count -eq 0) { throw 'Falta la protección del historial privado.' }
     $approved = git rev-parse --verify 'refs/unishare/approved-public^{commit}'
     if ($LASTEXITCODE -ne 0) { throw 'Primero prepara y revisa una instantánea pública.' }
-    foreach ($line in [Console]::In.ReadToEnd().Split("`n", [StringSplitOptions]::RemoveEmptyEntries)) {
+    foreach ($line in [Console]::In.ReadToEnd().Split([char[]]@("`r", "`n"), [StringSplitOptions]::RemoveEmptyEntries)) {
         $fields = $line.Trim() -split '\s+'
         if ($fields.Count -ne 4) { throw 'Formato de pre-push no válido.' }
         $localRef, $localObject, $remoteRef, $remoteObject = $fields

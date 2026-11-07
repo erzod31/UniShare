@@ -104,6 +104,17 @@ public sealed class PortableSyncService : ISyncService
                     unchanged++;
                     continue;
                 }
+
+                if (localChanged && remoteChanged && TryMergeNonColliding(local, remote, out var merged))
+                {
+                    var mergedHash = HashItem(merged);
+                    await UpdateItemAsync(connection, transaction, merged, cancellationToken);
+                    await UpsertStateAsync(connection, transaction, sourceDeviceId, remote.Id,
+                        mergedHash, remoteHash, now, cancellationToken);
+                    await WriteOperationAsync(connection, transaction, merged, "item.synced", now, cancellationToken);
+                    updated++;
+                    continue;
+                }
             }
 
             await UpsertConflictAsync(
@@ -161,7 +172,11 @@ public sealed class PortableSyncService : ISyncService
                 payload.SourceDeviceId,
                 payload.Local.Title,
                 payload.Remote.Title,
-                ParseTimestamp(reader.GetString(3))));
+                ParseTimestamp(reader.GetString(3)),
+                payload.Local.Description,
+                payload.Remote.Description,
+                payload.Local.Favorite,
+                payload.Remote.Favorite));
         }
 
         return result;
@@ -748,6 +763,78 @@ public sealed class PortableSyncService : ISyncService
                 throw new InvalidDataException("Un archivo o híbrido remoto no contiene ningún asset.");
             }
         }
+    }
+
+    private static bool TryMergeNonColliding(ItemRecord local, ItemRecord remote, out ItemRecord merged)
+    {
+        merged = local;
+        if (!string.Equals(local.Title, remote.Title, StringComparison.Ordinal) ||
+            !string.Equals(local.OriginalUrl, remote.OriginalUrl, StringComparison.Ordinal) ||
+            !string.Equals(local.CanonicalUrl, remote.CanonicalUrl, StringComparison.Ordinal) ||
+            !string.Equals(local.DeletedAt, remote.DeletedAt, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (local.Kind != remote.Kind &&
+            !((local.Kind == (int)ItemKind.Link && remote.Kind == (int)ItemKind.Hybrid) ||
+              (local.Kind == (int)ItemKind.Hybrid && remote.Kind == (int)ItemKind.Link)))
+        {
+            return false;
+        }
+
+        if (local.Source is not null && remote.Source is not null &&
+            !string.Equals(local.Source, remote.Source, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (local.Author is not null && remote.Author is not null &&
+            !string.Equals(local.Author, remote.Author, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        if (local.Description is not null && remote.Description is not null &&
+            !string.Equals(local.Description, remote.Description, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var localAddedMeta = (local.Source is not null && remote.Source is null) ||
+            (local.Author is not null && remote.Author is null) ||
+            (local.Description is not null && remote.Description is null) ||
+            (local.Kind == (int)ItemKind.Hybrid && remote.Kind == (int)ItemKind.Link);
+        var remoteAddedMeta = (remote.Source is not null && local.Source is null) ||
+            (remote.Author is not null && local.Author is null) ||
+            (remote.Description is not null && local.Description is null) ||
+            (remote.Kind == (int)ItemKind.Hybrid && local.Kind == (int)ItemKind.Link);
+        if (!localAddedMeta && !remoteAddedMeta)
+        {
+            return false;
+        }
+
+        var mergedFavorite = local.Favorite == remote.Favorite
+            ? local.Favorite
+            : remoteAddedMeta && !localAddedMeta
+                ? local.Favorite
+                : localAddedMeta && !remoteAddedMeta
+                    ? remote.Favorite
+                    : local.Favorite || remote.Favorite;
+        var mergedUpdatedAt = ParseTimestamp(local.UpdatedAt) >= ParseTimestamp(remote.UpdatedAt)
+            ? local.UpdatedAt
+            : remote.UpdatedAt;
+
+        merged = local with
+        {
+            Kind = Math.Max(local.Kind, remote.Kind),
+            Source = local.Source ?? remote.Source,
+            Author = local.Author ?? remote.Author,
+            Description = local.Description ?? remote.Description,
+            Favorite = mergedFavorite,
+            UpdatedAt = mergedUpdatedAt,
+        };
+        return true;
     }
 
     private static string HashItem(ItemRecord item) =>

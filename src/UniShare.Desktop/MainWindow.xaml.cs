@@ -11,7 +11,7 @@ namespace UniShare.Desktop;
 
 public partial class MainWindow : Window, IDisposable
 {
-    private const string OriginMetadataMigration = "7";
+    private const string OriginMetadataMigration = "8";
     private readonly MainWindowViewModel _viewModel;
     private readonly LibraryService _library;
     private readonly IBlobStore _blobStore;
@@ -25,6 +25,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly string _profileRoot;
     private bool _isCapturing;
     private bool _isRefreshingOriginMetadata;
+    private CancellationTokenSource? _searchDebounceCts;
     private readonly LocalDescriptionTranslator _translator;
 
     private static MessageBoxResult ShowMessage(
@@ -64,6 +65,7 @@ public partial class MainWindow : Window, IDisposable
         _translator = new LocalDescriptionTranslator(TranslationEngine, _profileRoot);
         DescriptionTranslation.Initialize(_translator, _profileRoot);
         TranslationMenuItem.IsChecked = DescriptionTranslation.Enabled;
+        _directSyncServer.LibraryChanged += OnDirectSyncLibraryChanged;
         Closed += (_, _) => Dispose();
         DataContext = _viewModel;
         ThemeMenuItem.Header = UiLanguage.Choice == UiLanguageChoice.English
@@ -115,8 +117,31 @@ public partial class MainWindow : Window, IDisposable
 
     public void Dispose()
     {
+        _directSyncServer.LibraryChanged -= OnDirectSyncLibraryChanged;
+        _searchDebounceCts?.Cancel();
+        _searchDebounceCts?.Dispose();
         _translator.Dispose();
         GC.SuppressFinalize(this);
+    }
+
+    private void OnDirectSyncLibraryChanged() =>
+        _ = Dispatcher.BeginInvoke(async () =>
+        {
+            await RefreshSafelyAsync();
+            await RefreshOriginMetadataAsync(automaticOnly: true);
+        });
+
+    private static bool NeedsAutomaticEnrichment(UniShare.Domain.LibraryItem item)
+    {
+        if (item.OriginalUrl is null || !Uri.TryCreate(item.OriginalUrl, UriKind.Absolute, out var uri))
+        {
+            return false;
+        }
+
+        return string.IsNullOrWhiteSpace(item.Description) ||
+            ContentSummaryQuality.IsKnownNavigationJunk(item.Description) ||
+            item.Title == LinkCaptureDefaults.TitleFromUrl(uri) ||
+            ContentSummaryQuality.IsProvisionalSource(item.Source, uri);
     }
 
     private async Task RefreshOriginMetadataAsync(bool automaticOnly)
@@ -135,15 +160,22 @@ public partial class MainWindow : Window, IDisposable
         {
             var migrationMarker = Path.Combine(
                 _profileRoot, "config", $"origin-metadata-{OriginMetadataMigration}.completed");
-            if (automaticOnly && File.Exists(migrationMarker))
-            {
-                return;
-            }
+            var migrationCompleted = File.Exists(migrationMarker);
 
             var allItems = await _library.GetAllAsync();
             var candidates = allItems
-                .Where(item => item.OriginalUrl is not null)
+                .Where(item => item.OriginalUrl is not null &&
+                    (!automaticOnly || !migrationCompleted || NeedsAutomaticEnrichment(item)))
                 .ToArray();
+            if (automaticOnly && candidates.Length == 0)
+            {
+                if (!migrationCompleted)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(migrationMarker)!);
+                    await File.WriteAllTextAsync(migrationMarker, DateTimeOffset.UtcNow.ToString("O"));
+                }
+                return;
+            }
             if (!automaticOnly)
             {
                 _viewModel.StatusMessage = candidates.Length == 0
@@ -153,40 +185,47 @@ public partial class MainWindow : Window, IDisposable
 
             var updated = 0;
             var unavailable = 0;
-            foreach (var candidate in candidates)
-            {
-                try
+            await Parallel.ForEachAsync(
+                candidates,
+                new ParallelOptions { MaxDegreeOfParallelism = 4 },
+                async (candidate, ct) =>
                 {
-                    var metadata = await _downloads.FetchMetadataAsync(new Uri(candidate.OriginalUrl!));
-                    if (metadata is null)
+                    try
                     {
-                        continue;
-                    }
+                        var metadata = await _downloads.FetchMetadataAsync(new Uri(candidate.OriginalUrl!), ct);
+                        if (metadata is null)
+                        {
+                            return;
+                        }
 
-                    var item = await _library.GetAsync(candidate.Id);
-                    if (item is null || item.DeletedAt.HasValue || item.OriginalUrl != candidate.OriginalUrl)
-                    {
-                        continue;
-                    }
-                    var title = metadata.ResolveTitle(item.Title, new Uri(item.OriginalUrl!));
-                    var source = string.IsNullOrWhiteSpace(item.Source) ? metadata.Source : item.Source;
-                    var author = string.IsNullOrWhiteSpace(item.Author) ? metadata.Author : item.Author;
-                    var description = metadata.ResolveDescription(item.Description);
-                    if (title == item.Title && source == item.Source && author == item.Author &&
-                        description == item.Description)
-                    {
-                        continue;
-                    }
+                        var item = await _library.GetAsync(candidate.Id, ct);
+                        if (item is null || item.DeletedAt.HasValue || item.OriginalUrl != candidate.OriginalUrl)
+                        {
+                            return;
+                        }
+                        var itemUri = new Uri(item.OriginalUrl!);
+                        var title = metadata.ResolveTitle(item.Title, itemUri);
+                        var source = ContentSummaryQuality.IsProvisionalSource(item.Source, itemUri) &&
+                            !string.IsNullOrWhiteSpace(metadata.Source)
+                            ? metadata.Source
+                            : item.Source;
+                        var author = string.IsNullOrWhiteSpace(item.Author) ? metadata.Author : item.Author;
+                        var description = metadata.ResolveDescription(item.Description);
+                        if (title == item.Title && source == item.Source && author == item.Author &&
+                            description == item.Description)
+                        {
+                            return;
+                        }
 
-                    await _library.UpdateAsync(
-                        item.Id, title!, source, author, description, item.Favorite);
-                    updated++;
-                }
-                catch
-                {
-                    unavailable++;
-                }
-            }
+                        await _library.UpdateAsync(
+                            item.Id, title!, source, author, description, item.Favorite, ct);
+                        Interlocked.Increment(ref updated);
+                    }
+                    catch
+                    {
+                        Interlocked.Increment(ref unavailable);
+                    }
+                });
 
             if (updated > 0)
             {
@@ -201,7 +240,7 @@ public partial class MainWindow : Window, IDisposable
                     : "Los títulos y los resúmenes ya estaban actualizados.";
             }
 
-            if (automaticOnly && (candidates.Length == 0 || unavailable < candidates.Length))
+            if (automaticOnly && !migrationCompleted && (candidates.Length == 0 || unavailable < candidates.Length))
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(migrationMarker)!);
                 await File.WriteAllTextAsync(migrationMarker, DateTimeOffset.UtcNow.ToString("O"));
@@ -254,16 +293,28 @@ public partial class MainWindow : Window, IDisposable
             : $"Tamaño del texto {DesktopTheme.TextScaleLabel.ToLowerInvariant()} activado.";
     }
 
-    private void Language_Click(object sender, RoutedEventArgs e)
+    private async void Language_Click(object sender, RoutedEventArgs e)
     {
         UiLanguage.ToggleAndSave();
-        var executable = Environment.ProcessPath ?? throw new InvalidOperationException("No se encontró el ejecutable.");
-        Process.Start(new ProcessStartInfo(executable)
-        {
-            UseShellExecute = true,
-            Arguments = "--wait-for-previous",
-        });
-        System.Windows.Application.Current.Shutdown();
+        UiLanguage.ApplyToWindow(this);
+        ThemeMenuItem.Header = UiLanguage.Choice == UiLanguageChoice.English
+            ? $"Theme: {DesktopTheme.Label}"
+            : $"Tema: {DesktopTheme.Label}";
+        TextScaleMenuItem.Header = UiLanguage.Choice == UiLanguageChoice.English
+            ? $"Text size: {DesktopTheme.TextScaleLabel}"
+            : $"Tamaño del texto: {DesktopTheme.TextScaleLabel}";
+        LanguageMenuItem.Header = UiLanguage.Choice == UiLanguageChoice.English
+            ? "Language: English"
+            : "Idioma: Español";
+        SyncStatusText.Text = UiLanguage.T(_directSyncError is not null
+            ? "Requiere revisión"
+            : !_directSyncServer.IsRunning
+                ? "Sin conexión"
+                : _tailscaleSetupError is null
+                    ? "Activa en segundo plano"
+                    : "Nodo local activo");
+        _viewModel.NotifyLanguageChanged();
+        await RefreshSafelyAsync();
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -566,7 +617,9 @@ public partial class MainWindow : Window, IDisposable
                             item = await _library.UpdateAsync(
                                 item.Id,
                                 metadata.ResolveTitle(current.Title, uri),
-                                string.IsNullOrWhiteSpace(current.Source) ? metadata.Source : current.Source,
+                                ContentSummaryQuality.IsProvisionalSource(current.Source, uri) && !string.IsNullOrWhiteSpace(metadata.Source)
+                                    ? metadata.Source
+                                    : current.Source,
                                 string.IsNullOrWhiteSpace(current.Author) ? metadata.Author : current.Author,
                                 metadata.ResolveDescription(current.Description),
                                 current.Favorite);
@@ -886,11 +939,40 @@ public partial class MainWindow : Window, IDisposable
     {
         if (e.Key == Key.Enter)
         {
+            _searchDebounceCts?.Cancel();
             await RefreshSafelyAsync();
         }
     }
 
-    private async void FilterChanged(object sender, RoutedEventArgs e) => await RefreshSafelyAsync();
+    private async void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+
+        _searchDebounceCts?.Cancel();
+        _searchDebounceCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _searchDebounceCts = cts;
+        try
+        {
+            await Task.Delay(200, cts.Token);
+            await RefreshSafelyAsync();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async void FilterChanged(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded)
+        {
+            return;
+        }
+        await RefreshSafelyAsync();
+    }
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
@@ -947,6 +1029,64 @@ public partial class MainWindow : Window, IDisposable
             _viewModel.StatusMessage = selected.Length == 1
                 ? "Elemento restaurado en la biblioteca."
                 : $"{selected.Length} elementos restaurados en la biblioteca.";
+        });
+    }
+
+    private async void PurgeTrash_Click(object sender, RoutedEventArgs e)
+    {
+        var selectedDeleted = GetSelectedRows().Where(item => item.IsDeleted).ToArray();
+        var prompt = selectedDeleted.Length > 0
+            ? $"¿Eliminar definitivamente {selectedDeleted.Length} elemento(s) de la Papelera?\n\nEsta acción no se puede deshacer y liberará el espacio ocupado."
+            : "¿Vaciar definitivamente toda la Papelera?\n\nEsta acción no se puede deshacer y liberará el espacio ocupado.";
+        var answer = ShowMessage(
+            prompt,
+            "Vaciar papelera",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning,
+            MessageBoxResult.No);
+        if (answer != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        await RunSafelyAsync(async () =>
+        {
+            var ids = selectedDeleted.Length > 0
+                ? selectedDeleted.Select(item => item.Id).ToArray()
+                : null;
+            var purged = await _library.PurgeDeletedAsync(ids);
+            await new BlobGarbageCollector(_profileRoot, TimeProvider.System).CollectAsync(TimeSpan.Zero);
+            await _viewModel.RefreshAsync();
+            _viewModel.StatusMessage = selectedDeleted.Length > 0 && purged > 0
+                ? (purged == 1 ? "1 elemento eliminado definitivamente." : $"{purged} elementos eliminados definitivamente.")
+                : "La papelera se ha vaciado definitivamente.";
+        });
+    }
+
+    private async void BatchOrganize_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = GetSelectedRows().Where(item => !item.IsDeleted).ToArray();
+        if (selected.Length == 0)
+        {
+            return;
+        }
+
+        var organization = await _library.GetOrganizationAsync(selected[0].Id);
+        var dialog = new MetadataEditorWindow(selected[0].Item, organization) { Owner = this };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        await RunSafelyAsync(async () =>
+        {
+            await _library.ApplyBatchOrganizationAsync(
+                selected.Select(row => row.Id).ToArray(),
+                dialog.ItemTags,
+                dialog.ItemCollections,
+                dialog.ItemFavorite ? true : null);
+            await _viewModel.RefreshAsync();
+            _viewModel.StatusMessage = "Cambios guardados.";
         });
     }
 

@@ -409,6 +409,35 @@ public sealed class DirectSyncServerTests
             response.Headers.GetValues("X-UniShare-Full-Snapshot").Single() == "1");
     }
 
+    [Fact]
+    public async Task RotatePairingKeyInvalidatesPreviousKeyAndThrottlesRepeatedFailedAuth()
+    {
+        using var temporary = new TemporaryDirectory();
+        var profile = await CreateProfileAsync(temporary.Path, "rotation");
+        var port = ReservePort();
+        await using var server = new DirectSyncServer(profile.Root, profile.Backup, profile.Sync, port);
+        await server.StartAsync(TestContext.Current.CancellationToken);
+        using var client = new HttpClient { BaseAddress = new Uri(server.Configuration.LocalAddress) };
+
+        var oldKey = server.Configuration.PairingKey;
+        var rotated = server.RotatePairingKey();
+        Assert.NotEqual(oldKey, rotated);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", oldKey);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/status", TestContext.Current.CancellationToken)).StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", rotated);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/status", TestContext.Current.CancellationToken)).StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", oldKey);
+        for (var attempt = 0; attempt < 12; attempt++)
+        {
+            _ = await client.GetAsync("/api/v1/status", TestContext.Current.CancellationToken);
+        }
+        var throttled = await client.GetAsync("/api/v1/status", TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, throttled.StatusCode);
+    }
+
     private static int ReservePort()
     {
         var listener = new TcpListener(IPAddress.Loopback, 0);

@@ -1,4 +1,4 @@
-#requires -Version 7.0
+#requires -Version 5.1
 param(
     [string]$Version = "0.6.25"
 )
@@ -9,7 +9,7 @@ foreach ($variable in @('GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE')) {
         throw "Retira $variable del entorno antes de preparar la publicación."
     }
 }
-$repositoryRoot = (git rev-parse --show-toplevel).Trim()
+$repositoryRoot = (git -C $PSScriptRoot rev-parse --show-toplevel).Trim()
 if ($LASTEXITCODE -ne 0) { throw 'Ejecuta el script dentro del repositorio.' }
 
 function Invoke-PublicGit([string[]]$Arguments) {

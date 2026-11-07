@@ -141,6 +141,9 @@ public sealed class MainWindowViewModelTests
         public Task<ItemOrganization> GetOrganizationAsync(Guid itemId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task ReplaceTagsAsync(Guid itemId, IReadOnlyCollection<string> names, DateTimeOffset now, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task ReplaceCollectionsAsync(Guid itemId, IReadOnlyCollection<string> names, DateTimeOffset now, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyDictionary<Guid, IReadOnlyList<AssetManifest>>> GetAssetsBatchAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IReadOnlyDictionary<Guid, ItemOrganization>> GetOrganizationsBatchAsync(IReadOnlyCollection<Guid> itemIds, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<int> PurgeDeletedAsync(IReadOnlyCollection<Guid>? itemIds = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         private sealed record PendingSearch(
             string Query,

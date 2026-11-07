@@ -59,6 +59,25 @@ public partial class DirectSyncWindow : Window
         ConnectionStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
     }
 
+    private void RotatePairingKey_Click(object sender, RoutedEventArgs e)
+    {
+        var decision = MessageBox.Show(
+            UiLanguage.T("Al generar una nueva clave, la extensión y los dispositivos vinculados necesitarán actualizarse con la clave nueva. ¿Continuar?"),
+            UiLanguage.T("Generar nueva clave"),
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (decision != MessageBoxResult.Yes)
+        {
+            return;
+        }
+
+        var updatedKey = _server.RotatePairingKey();
+        PairingKeyBox.Text = updatedKey;
+        RenderPairingQr();
+        ConnectionStatus.Text = UiLanguage.T("Se generó una nueva clave privada. Actualízala en Edge y vuelve a escanear el QR en tu teléfono.");
+        ConnectionStatus.Foreground = System.Windows.Media.Brushes.ForestGreen;
+    }
+
     private void SaveEndpoint_Click(object sender, RoutedEventArgs e)
     {
         try

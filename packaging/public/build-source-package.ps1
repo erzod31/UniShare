@@ -1,4 +1,4 @@
-#requires -Version 7.0
+#requires -Version 5.1
 param(
     [string]$Version = "0.6.25",
     [string]$OutputPath = ""
@@ -10,7 +10,7 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
     throw "La versión debe tener el formato X.Y.Z."
 }
 
-$repositoryRoot = [IO.Path]::GetFullPath((git rev-parse --show-toplevel).Trim())
+$repositoryRoot = [IO.Path]::GetFullPath((git -C $PSScriptRoot rev-parse --show-toplevel).Trim())
 if (-not $repositoryRoot -or -not (Test-Path -LiteralPath (Join-Path $repositoryRoot ".git"))) {
     throw "Ejecuta el script desde el repositorio Git de UniShare."
 }
@@ -24,8 +24,10 @@ $artifactRoot = Join-Path $repositoryRoot "artifacts"
 [IO.Directory]::CreateDirectory($artifactRoot) | Out-Null
 $output = if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     Join-Path $artifactRoot "UniShare-Source-$Version.zip"
+} elseif ([IO.Path]::IsPathRooted($OutputPath)) {
+    [IO.Path]::GetFullPath($OutputPath)
 } else {
-    [IO.Path]::GetFullPath($OutputPath, $repositoryRoot)
+    [IO.Path]::GetFullPath((Join-Path $repositoryRoot $OutputPath))
 }
 if (-not $output.StartsWith($artifactRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase) -or
     [IO.Path]::GetExtension($output) -ne '.zip') {
@@ -108,9 +110,15 @@ try {
                 }
                 # Emscripten creates a public virtual home inside WASM. Accept that literal only
                 # in the exact reviewed upstream file; modified bytes still receive every check.
+                $sha256 = [Security.Cryptography.SHA256]::Create()
+                try {
+                    $contentHash = [BitConverter]::ToString($sha256.ComputeHash([Text.Encoding]::UTF8.GetBytes($content))).Replace('-', '')
+                }
+                finally {
+                    $sha256.Dispose()
+                }
                 $knownVirtualHome = $name -eq "UniShare-$Version/shared/translation/vendor/bergamot-translator.js" -and
-                    [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($content))) -eq
-                        '972FA0450146FE06F4006A2BA56E8C4834403E27873CFE47FB3BA85AA7B9B082'
+                    $contentHash -eq '972FA0450146FE06F4006A2BA56E8C4834403E27873CFE47FB3BA85AA7B9B082'
                 foreach ($rule in $privateContent.GetEnumerator()) {
                     $scanContent = if ($knownVirtualHome -and $rule.Key -eq 'ruta de perfil Linux') {
                         $content.Replace(('/' + 'home/web_user'), '/wasm-virtual-user')
@@ -129,7 +137,7 @@ try {
     if (Test-Path -LiteralPath $output) {
         Move-Item -LiteralPath $output -Destination ($output + '.previous-' + [Guid]::NewGuid().ToString('N'))
     }
-    [IO.File]::Move($temporaryOutput, $output, $false)
+    [IO.File]::Move($temporaryOutput, $output)
 }
 finally {
     if (Test-Path -LiteralPath $temporaryOutput) {

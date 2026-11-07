@@ -162,6 +162,39 @@ public sealed class PortableSyncServiceTests
         Assert.Equal("Lecturas", Assert.Single(reAdded.Collections).Name);
     }
 
+    [Fact]
+    public async Task ConcurrentNonCollidingMetadataAndFavoriteChangesMergeAutomaticallyWithoutConflict()
+    {
+        using var temporary = new TemporaryDirectory();
+        var left = await CreateProfileAsync(temporary.Path, "left-merge");
+        var right = await CreateProfileAsync(temporary.Path, "right-merge");
+        var item = await left.Library.CreateAsync(new CreateItemRequest(
+            "Artículo compartido", "https://example.com/non-colliding", null), TestContext.Current.CancellationToken);
+
+        var baseline = Path.Combine(temporary.Path, "merge-baseline.zip");
+        await left.Backup.ExportAsync(baseline, TestContext.Current.CancellationToken);
+        await right.Sync.ImportAsync(baseline, TestContext.Current.CancellationToken);
+
+        await left.Library.UpdateAsync(
+            item.Id, "Artículo compartido", "Sitio Web", "Ada Lovelace", "Resumen enriquecido", false,
+            TestContext.Current.CancellationToken);
+        await right.Library.UpdateAsync(
+            item.Id, "Artículo compartido", null, null, null, true,
+            TestContext.Current.CancellationToken);
+
+        var package = Path.Combine(temporary.Path, "left-enriched.zip");
+        await left.Backup.ExportAsync(package, TestContext.Current.CancellationToken);
+        var summary = await right.Sync.ImportAsync(package, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, summary.Conflicts);
+        Assert.Equal(1, summary.UpdatedItems);
+        var merged = Assert.Single(await right.Library.SearchAsync(null, cancellationToken: TestContext.Current.CancellationToken));
+        Assert.True(merged.Favorite);
+        Assert.Equal("Resumen enriquecido", merged.Description);
+        Assert.Equal("Sitio Web", merged.Source);
+        Assert.Equal("Ada Lovelace", merged.Author);
+    }
+
     private static async Task<Profile> CreateProfileAsync(string root, string name)
     {
         var profileRoot = Path.Combine(root, name);

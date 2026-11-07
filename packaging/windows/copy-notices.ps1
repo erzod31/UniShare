@@ -1,21 +1,22 @@
-#Requires -Version 7.0
+#Requires -Version 5.1
 param([Parameter(Mandatory = $true)] [string]$PublishDirectory)
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $publish = (Resolve-Path -LiteralPath $PublishDirectory).Path
-$assets = Get-Content -LiteralPath (Join-Path $root 'src\UniShare.Desktop\obj\project.assets.json') -Raw | ConvertFrom-Json -AsHashtable
+$assets = Get-Content -LiteralPath (Join-Path $root 'src\UniShare.Desktop\obj\project.assets.json') -Raw | ConvertFrom-Json
 $noticeRoot = Join-Path $publish 'licenses'
 New-Item -ItemType Directory -Path $noticeRoot -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE'), (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $noticeRoot
 Get-ChildItem -LiteralPath (Join-Path $root 'licenses') -File | Copy-Item -Destination $noticeRoot
-$packages = @($assets.libraries.GetEnumerator() | Where-Object { $_.Value.type -eq 'package' } | ForEach-Object { $_.Key })
+$packages = @($assets.libraries.PSObject.Properties | Where-Object { $_.Value.type -eq 'package' } | ForEach-Object { $_.Name })
 $runtime = Get-Content -LiteralPath (Join-Path $publish 'UniShare.Desktop.runtimeconfig.json') -Raw | ConvertFrom-Json
 $packages += @($runtime.runtimeOptions.includedFrameworks | ForEach-Object { "$($_.name.ToLowerInvariant()).runtime.win-x64/$($_.version)" })
+$packageFolders = @($assets.packageFolders.PSObject.Properties | ForEach-Object { $_.Name })
 $inventory = foreach ($package in ($packages | Sort-Object -Unique)) {
     $parts = $package.Split('/')
     $folder = $null
-    foreach ($cache in $assets.packageFolders.Keys) {
+    foreach ($cache in $packageFolders) {
         $candidate = Join-Path $cache $package.ToLowerInvariant()
         if (Test-Path -LiteralPath $candidate -PathType Container) { $folder = [IO.Path]::GetFullPath($candidate); break }
     }

@@ -481,6 +481,162 @@ public sealed class SqliteLibraryRepository(string databasePath) : IItemReposito
         return ReplaceMembershipsAsync(itemId, normalized, MembershipKind.Collection, now, cancellationToken);
     }
 
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<AssetManifest>>> GetAssetsBatchAsync(
+        IReadOnlyCollection<Guid> itemIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(itemIds);
+        var requested = itemIds.Distinct().ToHashSet();
+        var map = requested.ToDictionary(id => id, _ => new List<AssetManifest>());
+        if (requested.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<AssetManifest>>();
+        }
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        command.CommandText = "SELECT * FROM assets ORDER BY created_at, id;";
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var itemId = Guid.Parse(reader.GetString(reader.GetOrdinal("item_id")));
+            if (!map.TryGetValue(itemId, out var list))
+            {
+                continue;
+            }
+            list.Add(new AssetManifest(
+                Guid.Parse(reader.GetString(reader.GetOrdinal("id"))),
+                itemId,
+                reader.GetString(reader.GetOrdinal("sha256")),
+                reader.GetInt64(reader.GetOrdinal("byte_length")),
+                reader.GetString(reader.GetOrdinal("mime_type")),
+                reader.GetString(reader.GetOrdinal("original_name")),
+                reader.GetString(reader.GetOrdinal("relative_path")),
+                ParseTimestamp(reader.GetString(reader.GetOrdinal("created_at")))));
+        }
+
+        return map.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<AssetManifest>)pair.Value);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, ItemOrganization>> GetOrganizationsBatchAsync(
+        IReadOnlyCollection<Guid> itemIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(itemIds);
+        var requested = itemIds.Distinct().ToHashSet();
+        var tagsByItem = requested.ToDictionary(id => id, _ => new List<LibraryTag>());
+        var collectionsByItem = requested.ToDictionary(id => id, _ => new List<LibraryCollectionDefinition>());
+        if (requested.Count == 0)
+        {
+            return new Dictionary<Guid, ItemOrganization>();
+        }
+
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using (var tagCommand = connection.CreateCommand())
+        {
+            tagCommand.CommandText = """
+                SELECT it.item_id, t.id, t.name, t.normalized_name
+                FROM tags t
+                INNER JOIN item_tags it ON it.tag_id = t.id
+                WHERE it.removed_at IS NULL
+                ORDER BY t.normalized_name;
+                """;
+            await using var reader = await tagCommand.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var itemId = Guid.Parse(reader.GetString(0));
+                if (tagsByItem.TryGetValue(itemId, out var list))
+                {
+                    var tag = new LibraryTag(Guid.Parse(reader.GetString(1)), reader.GetString(2), reader.GetString(3));
+                    if (!list.Any(existing => existing.Id == tag.Id))
+                    {
+                        list.Add(tag);
+                    }
+                }
+            }
+        }
+
+        await using (var collectionCommand = connection.CreateCommand())
+        {
+            collectionCommand.CommandText = """
+                SELECT ic.item_id, c.id, c.name, c.normalized_name
+                FROM collections c
+                INNER JOIN item_collections ic ON ic.collection_id = c.id
+                WHERE ic.removed_at IS NULL
+                ORDER BY c.normalized_name;
+                """;
+            await using var reader = await collectionCommand.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var itemId = Guid.Parse(reader.GetString(0));
+                if (collectionsByItem.TryGetValue(itemId, out var list))
+                {
+                    var col = new LibraryCollectionDefinition(Guid.Parse(reader.GetString(1)), reader.GetString(2), reader.GetString(3));
+                    if (!list.Any(existing => existing.Id == col.Id))
+                    {
+                        list.Add(col);
+                    }
+                }
+            }
+        }
+
+        return requested.ToDictionary(
+            id => id,
+            id => new ItemOrganization(tagsByItem[id], collectionsByItem[id]));
+    }
+
+    public async Task<int> PurgeDeletedAsync(
+        IReadOnlyCollection<Guid>? ids,
+        DateTimeOffset now,
+        CancellationToken cancellationToken = default)
+    {
+        await using var connection = await OpenConnectionAsync(cancellationToken);
+        await using var transaction = connection.BeginTransaction();
+        var targets = new List<Guid>();
+        await using (var select = connection.CreateCommand())
+        {
+            select.Transaction = transaction;
+            select.CommandText = "SELECT id FROM items WHERE deleted_at IS NOT NULL;";
+            var filter = ids is { Count: > 0 } ? ids.ToHashSet() : null;
+            await using var reader = await select.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var id = Guid.Parse(reader.GetString(0));
+                if (filter is null || filter.Contains(id))
+                {
+                    targets.Add(id);
+                }
+            }
+        }
+
+        foreach (var id in targets)
+        {
+            await using var deleteJobs = connection.CreateCommand();
+            deleteJobs.Transaction = transaction;
+            deleteJobs.CommandText = "DELETE FROM download_jobs WHERE item_id = $id;";
+            deleteJobs.Parameters.AddWithValue("$id", id.ToString("D"));
+            await deleteJobs.ExecuteNonQueryAsync(cancellationToken);
+
+            await using var deleteItem = connection.CreateCommand();
+            deleteItem.Transaction = transaction;
+            deleteItem.CommandText = "DELETE FROM items WHERE id = $id AND deleted_at IS NOT NULL;";
+            deleteItem.Parameters.AddWithValue("$id", id.ToString("D"));
+            await deleteItem.ExecuteNonQueryAsync(cancellationToken);
+
+            await WriteRawOperationAsync(
+                connection,
+                transaction,
+                id,
+                "item.purged",
+                JsonSerializer.Serialize(new { Id = id, PurgedAt = now }),
+                now,
+                cancellationToken);
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return targets.Count;
+    }
+
     public async Task<DownloadJob> QueueDownloadAsync(
         Guid itemId,
         Uri sourceUri,

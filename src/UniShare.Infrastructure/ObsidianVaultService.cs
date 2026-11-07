@@ -32,6 +32,9 @@ public sealed class ObsidianVaultService(
         }
 
         var items = await repository.GetAllAsync(includeDeleted: false, cancellationToken);
+        var itemIds = items.Select(item => item.Id).ToArray();
+        var organizationsByItem = await repository.GetOrganizationsBatchAsync(itemIds, cancellationToken);
+        var assetsByItem = await repository.GetAssetsBatchAsync(itemIds, cancellationToken);
         var assetCount = 0;
         var preservedNotes = 0;
         var expectedNotes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -59,8 +62,12 @@ public sealed class ObsidianVaultService(
                 CollectManagedAssetPaths(existingText, assetsRoot, previouslyReferencedAssets);
             }
 
-            var organization = await repository.GetOrganizationAsync(item.Id, cancellationToken);
-            var assets = await repository.GetAssetsAsync(item.Id, cancellationToken);
+            var organization = organizationsByItem.TryGetValue(item.Id, out var foundOrg)
+                ? foundOrg
+                : new ItemOrganization([], []);
+            var assets = assetsByItem.TryGetValue(item.Id, out var foundAssets)
+                ? foundAssets
+                : [];
             foreach (var asset in assets)
             {
                 var extension = SafeExtension(asset.OriginalName);
