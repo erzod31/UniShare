@@ -27,10 +27,8 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Orientation="Horizontal" Margin="8,0,0,22">
-                    <Border Width="34" Height="34" CornerRadius="9" Background="{DynamicResource PrimaryBrush}">
-                        <TextBlock Text="U" Foreground="White" FontWeight="Bold" FontSize="17"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                    <Image Source="pack://application:,,,/Assets/UniShare.ico" Width="36" Height="36"
+                           RenderOptions.BitmapScalingMode="HighQuality" />
                     <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="UniShare" FontSize="19" FontWeight="SemiBold" />
                         <TextBlock Text="Biblioteca personal" FontSize="11" Foreground="{DynamicResource SecondaryTextBrush}" />
