@@ -1038,11 +1038,6 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun LibraryItemCard(item: SavedItem) {
         val selected = item.id in selectedItemIds
-        val symbol = when (item.kind) {
-            2 -> "▤"
-            3 -> "◆"
-            else -> "↗"
-        }
         val subtitle = when {
             item.originalUrl != null && item.assetSha256 != null -> "${item.originalUrl} · Disponible offline"
             item.originalUrl != null -> item.originalUrl
@@ -1082,19 +1077,31 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth().padding(13.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Surface(
-                    modifier = Modifier.size(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clickable(
+                            enabled = item.originalUrl != null || item.assetSha256 != null,
+                            role = Role.Button,
+                            onClickLabel = UiStrings.translate(
+                                if (item.originalUrl != null) "Ir al enlace" else "Abrir contenido",
+                            ),
+                        ) {
+                            if (item.originalUrl != null) {
+                                openWebLink(item.originalUrl)
+                            } else {
+                                openItem(item)
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            symbol,
-                            modifier = Modifier.clearAndSetSemantics { },
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
+                    Image(
+                        painter = painterResource(
+                            id = if (item.originalUrl != null) R.drawable.ic_open_link else R.drawable.ic_file_item,
+                        ),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().clearAndSetSemantics { },
+                    )
                 }
                 Column(modifier = Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     MaterialText(

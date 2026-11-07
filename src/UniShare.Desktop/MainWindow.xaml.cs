@@ -1134,6 +1134,41 @@ public partial class MainWindow : Window, IDisposable
         });
     }
 
+    private async void ItemIconButton_Click(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (sender is not FrameworkElement { DataContext: ItemRow row })
+        {
+            return;
+        }
+
+        await RunSafelyAsync(async () =>
+        {
+            string? target = null;
+            if (!string.IsNullOrWhiteSpace(row.Item.OriginalUrl))
+            {
+                target = row.Item.OriginalUrl;
+            }
+            else
+            {
+                var assets = await _library.GetAssetsAsync(row.Id);
+                if (assets.Count > 0)
+                {
+                    target = _blobStore.GetAbsolutePath(assets[0].RelativePath);
+                }
+            }
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                throw new InvalidOperationException("Este elemento no tiene contenido disponible para abrir.");
+            }
+
+            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+            _viewModel.StatusMessage = !string.IsNullOrWhiteSpace(row.Item.OriginalUrl)
+                ? "Enlace abierto en el navegador."
+                : "Contenido abierto con la aplicación predeterminada.";
+        });
+    }
+
     private async void Open_Click(object sender, RoutedEventArgs e)
     {
         var selected = GetSingleSelectedRow("abrir");

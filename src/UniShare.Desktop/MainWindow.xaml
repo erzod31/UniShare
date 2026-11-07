@@ -244,10 +244,29 @@
                                         <Grid Margin="11,8" MinHeight="72"
                                               AutomationProperties.Name="{Binding AccessibilityLabel}">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="48" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                            <Border Width="40" Height="40" CornerRadius="10" Background="{DynamicResource IconBackgroundBrush}" VerticalAlignment="Top">
-                                                <TextBlock Text="{Binding KindShort}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                           Foreground="{DynamicResource IconTextBrush}" FontSize="17" FontWeight="SemiBold" />
-                                            </Border>
+                                            <Button Width="42" Height="42" Padding="0" VerticalAlignment="Top"
+                                                    Cursor="Hand" ToolTip="Ir al enlace"
+                                                    AutomationProperties.Name="Ir al enlace"
+                                                    Click="ItemIconButton_Click"
+                                                    Background="Transparent" BorderThickness="0">
+                                                <Border Width="42" Height="42" CornerRadius="11" BorderThickness="1" BorderBrush="#5560A5FA">
+                                                    <Border.Background>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                            <GradientStop Color="#2563EB" Offset="0.0" />
+                                                            <GradientStop Color="#1D4ED8" Offset="0.55" />
+                                                            <GradientStop Color="#0F172A" Offset="1.0" />
+                                                        </LinearGradientBrush>
+                                                    </Border.Background>
+                                                    <Viewbox Width="22" Height="22">
+                                                        <Canvas Width="24" Height="24">
+                                                            <Path Data="M10,6 H6.5 A2.5,2.5 0 0,0 4,8.5 V17.5 A2.5,2.5 0 0,0 6.5,20 H15.5 A2.5,2.5 0 0,0 18,17.5 V14"
+                                                                  Stroke="#7DD3FC" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                                                            <Path Data="M13.5,4 H20 V10.5 M20,4 L10.5,13.5"
+                                                                  Stroke="#FFFFFF" StrokeThickness="2.3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
+                                                        </Canvas>
+                                                    </Viewbox>
+                                                </Border>
+                                            </Button>
                                             <StackPanel Grid.Column="1" Margin="9,0,15,0">
                                                 <TextBlock Text="{Binding Title}" FontWeight="SemiBold" FontSize="15" TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource SecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
