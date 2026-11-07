@@ -96,23 +96,28 @@
                             </StackPanel>
                         </Grid>
                     </Border>
-                    <Menu Margin="0,8,0,0" Background="Transparent" Foreground="{DynamicResource PrimaryTextBrush}">
-                        <MenuItem Header="Opciones y herramientas" Padding="10,8">
-                            <MenuItem Header="Actualizar UniShare…" Click="AppUpdates_Click" />
-                            <MenuItem Header="Ver descargas pendientes" Click="ShowDownloads_Click" />
-                            <MenuItem Header="Actualizar títulos y resúmenes" Click="RefreshOriginMetadata_Click" />
-                            <MenuItem Header="Conectar teléfono…" Click="ConfigureDirectSync_Click" />
-                            <MenuItem Header="Resolver conflictos…" Click="ShowConflicts_Click" />
+                    <Menu Margin="0,8,0,0" HorizontalAlignment="Stretch" Background="Transparent" Foreground="{DynamicResource PrimaryTextBrush}">
+                        <Menu.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Grid HorizontalAlignment="Stretch" />
+                            </ItemsPanelTemplate>
+                        </Menu.ItemsPanel>
+                        <MenuItem Header="Opciones y herramientas" HorizontalAlignment="Stretch">
+                            <MenuItem Header="Actualizar UniShare…" Icon="↻" Click="AppUpdates_Click" />
+                            <MenuItem Header="Ver descargas pendientes" Icon="↓" Click="ShowDownloads_Click" />
+                            <MenuItem Header="Actualizar títulos y resúmenes" Icon="✦" Click="RefreshOriginMetadata_Click" />
+                            <MenuItem Header="Conectar teléfono…" Icon="⇄" Click="ConfigureDirectSync_Click" />
+                            <MenuItem Header="Resolver conflictos…" Icon="△" Click="ShowConflicts_Click" />
                             <Separator />
-                            <MenuItem Header="Exportar copia de seguridad…" Click="ExportBackup_Click" />
-                            <MenuItem Header="Restaurar copia…" Click="RestoreBackup_Click" />
+                            <MenuItem Header="Exportar copia de seguridad…" Icon="⤒" Click="ExportBackup_Click" />
+                            <MenuItem Header="Restaurar copia…" Icon="⤓" Click="RestoreBackup_Click" />
                             <Separator />
-                            <MenuItem Header="Exportar a Obsidian…" Click="ExportObsidian_Click" />
-                            <MenuItem Header="Importar notas desde Obsidian…" Click="ImportObsidian_Click" />
+                            <MenuItem Header="Exportar a Obsidian…" Icon="◈" Click="ExportObsidian_Click" />
+                            <MenuItem Header="Importar notas desde Obsidian…" Icon="◇" Click="ImportObsidian_Click" />
                             <Separator />
-                            <MenuItem x:Name="ThemeMenuItem" Header="Tema: Sistema" Click="Theme_Click" />
-                            <MenuItem x:Name="TextScaleMenuItem" Header="Tamaño del texto: Normal" Click="TextScale_Click" />
-                            <MenuItem x:Name="LanguageMenuItem" Header="Idioma: Español" Click="Language_Click" />
+                            <MenuItem x:Name="ThemeMenuItem" Header="Tema: Sistema" Icon="◐" Click="Theme_Click" />
+                            <MenuItem x:Name="TextScaleMenuItem" Header="Tamaño del texto: Normal" Icon="Ａ" Click="TextScale_Click" />
+                            <MenuItem x:Name="LanguageMenuItem" Header="Idioma: Español" Icon="🌐" Click="Language_Click" />
                             <MenuItem x:Name="TranslationMenuItem" Header="Traducir descripciones automáticamente"
                                       IsCheckable="True" Click="Translation_Click"
                                       ToolTip="Traducción local al idioma de Ajustes. Descarga idiomas al primer uso; el texto no sale del dispositivo." />
